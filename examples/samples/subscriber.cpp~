@@ -1,0 +1,236 @@
+/*
+ * Copyright (C) 2010-2011  George Parisis and Dirk Trossen
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version
+ * 2 as published by the Free Software Foundation.
+ *
+ * Alternatively, this software may be distributed under the terms of
+ * the BSD license.
+ *
+ * See LICENSE and COPYING for more details.
+ */
+
+#include <assert.h>             // Needed for assert() macro
+#include <stdio.h>              // Needed for printf()
+#include <stdlib.h>             // Needed for exit() and ato*()
+#include <math.h>               // Needed for pow()
+#include <time.h>
+
+#include "blackadder.hpp"
+#include <signal.h>
+
+#include <iostream>
+using namespace std ;
+
+#define CLIENT_SIZE 6
+#define RUNTIME 3600 //running time in sec
+#define FILESIZE 100
+#define CHUNKSIZE 50
+#define SEGSIZE 10
+//----- Constants -----------------------------------------------------------
+#define  FALSE          0       // Boolean false
+#define  TRUE           1       // Boolean true
+
+int zipf(double alpha, int n);  // Returns a Zipf random variable
+double   rand_val(int seed);         // Jain's RNG
+
+void client_process(int) ;
+
+Blackadder *ba;
+
+void sigfun(int sig) {
+    (void) signal(SIGINT, SIG_DFL);
+    ba->disconnect();
+    delete ba;
+    exit(0);
+}
+
+int main(int argc, char* argv[]) {
+    (void) signal(SIGINT, sigfun);
+    if (argc > 1) {
+        int user_or_kernel = atoi(argv[1]);
+        if (user_or_kernel == 0) {
+            ba = Blackadder::Instance(true);
+        } else {
+            ba = Blackadder::Instance(false);
+        }
+    } else {
+        /*By Default I assume blackadder is running in user space*/
+        ba = Blackadder::Instance(true);
+    }
+
+    int i = 0 ;
+    for( i = 1 ; i < CLIENT_SIZE ; i++ )
+    {
+        pid_t pid ;
+        if( (pid = fork()) < 0 )
+        {
+            cout<<"fork error"<<endl ;
+        }
+        if( pid == 0 )
+        {
+            client_process(i) ;
+            return 0 ;
+        }
+    }
+    i = CLIENT_SIZE ;
+    client_process(i) ;
+}
+void client_process(int i)
+{
+    FILE *f ;
+    char filename[255] ;
+    sprintf(filename, "/home/cinc_process%d.dat", i) ;
+    if( (f = fopen(filename, "w+")) == NULL)
+    {
+        cout<<"process"<<i<<" fopen error"<<endl ;
+    }
+    unsigned int file_num = 0 ;
+    rand_val(time(NULL)+getpid()) ;
+
+    time_t begintime = time(NULL) ;
+    time_t endtime = time(NULL) ;
+    while(difftime(endtime, begintime) < 3600)
+    {
+        string bin_prefix_id ;
+        string bin_id ;
+        file_num = zipf(1.0, FILESIZE) ;
+        string fileid ;
+        char filename[10] ;
+        sprintf(filename, "%X", file_num) ;
+        fileid.insert(0, 2*PURSUIT_ID_LEN-strlen(filename), '0') ;
+        fileid += filename ;
+        fprintf(f, "%d  ", file_num) ;
+
+        unsigned int chunk_num = 1 ;
+        time_t subtime = time(NULL) ;
+        while(chunk_num <= CHUNKSIZE)
+        {
+            string chunkid ;
+            char chunkname[10] ;
+            sprintf(chunkname, "%X", chunk_num) ;
+            chunkid.insert(0, 2*PURSUIT_ID_LEN - strlen(chunkname), '0') ;
+            chunkid += chunkname ;
+
+            bin_id = hex_to_chararray(chunkid) ;
+            bin_prefix_id = hex_to_chararray(fileid) ;
+            ba->cinc_subscribe_scope(bin_id, bin_prefix_id, DOMAIN_LOCAL);
+            chunk_num++ ;
+        }
+        chunk_num = 0 ;
+        while (chunk_num < CHUNKSIZE) {
+            Event ev;
+            ba->getEvent(ev);
+            switch (ev.type) {
+                case SCOPE_PUBLISHED:
+                    cout << "SCOPE_PUBLISHED: " << chararray_to_hex(ev.id) << endl;
+                    bin_id = ev.id.substr(ev.id.length() - PURSUIT_ID_LEN, PURSUIT_ID_LEN);
+                    bin_prefix_id = ev.id.substr(0, ev.id.length() - PURSUIT_ID_LEN);
+                    ba->subscribe_scope(bin_id, bin_prefix_id, DOMAIN_LOCAL, NULL, 0);
+                    break;
+                case SCOPE_UNPUBLISHED:
+                    cout << "SCOPE_UNPUBLISHED: " << chararray_to_hex(ev.id) << endl;
+                    break;
+                case START_PUBLISH:
+                    cout << "START_PUBLISH: " << chararray_to_hex(ev.id) << endl;
+                    break;
+                case STOP_PUBLISH:
+                    cout << "STOP_PUBLISH: " << chararray_to_hex(ev.id) << endl;
+                    break;
+                case PUBLISHED_DATA:
+                    chunk_num++ ;
+                    cout << "PUBLISHED_DATA: " << chararray_to_hex(ev.id) << endl;
+                    cout << "data size: " << ev.data_len << endl;
+                    break;
+            }
+        }
+        fprintf(f, "%f\n", difftime(time(NULL), subtime)) ;
+    }
+    fclose(f) ;
+    ba->disconnect();
+    delete ba;
+    return ;
+}
+
+
+
+
+int zipf(double alpha, int n)
+{
+  static int first = TRUE;      // Static first time flag
+  static double c = 0;          // Normalization constant
+  double z;                     // Uniform random number (0 < z < 1)
+  double sum_prob;              // Sum of probabilities
+  double zipf_value;            // Computed exponential value to be returned
+  int    i;                     // Loop counter
+
+  // Compute normalization constant on first call only
+  if (first == TRUE)
+  {
+    for (i=1; i<=n; i++)
+      c = c + (1.0 / pow((double) i, alpha));
+    c = 1.0 / c;
+    first = FALSE;
+  }
+
+  // Pull a uniform random number (0 < z < 1)
+  do
+  {
+    z = rand_val(0.0);
+  }
+  while ((z == 0) || (z == 1));
+
+  // Map z to the value
+  sum_prob = 0;
+  for (i=1; i<=n; i++)
+  {
+    sum_prob = sum_prob + c / pow((double) i, alpha);
+    if (sum_prob >= z)
+    {
+      zipf_value = i;
+      break;
+    }
+  }
+
+  // Assert that zipf_value is between 1 and N
+  assert((zipf_value >=1) && (zipf_value <= n));
+
+  return(zipf_value);
+}
+
+double rand_val(int seed)
+{
+	const long  a =      16807;  // Multiplier
+	const long  m = 2147483647;  // Modulus
+	const long  q =     127773;  // m div a
+	const long  r =       2836;  // m mod a
+	static long x;               // Random int value
+	long        x_div_q;         // x divided by q
+	long        x_mod_q;         // x modulo q
+	long        x_new;           // New x value
+
+	// Set the seed if argument is non-zero and then return zero
+	if (seed > 0)
+	{
+		x = seed;
+		return(0.0);
+	}
+
+	// RNG using integer arithmetic
+	x_div_q = x / q;
+	x_mod_q = x % q;
+	x_new = (a * x_mod_q) - (r * x_div_q);
+	if (x_new > 0)
+		x = x_new;
+	else
+		x = x_new + m;
+
+	// Return a random value between 0.0 and 1.0
+	return((double) x / m);
+}
+
+
+
+
