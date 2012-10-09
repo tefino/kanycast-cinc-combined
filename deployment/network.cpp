@@ -227,9 +227,9 @@ void Domain::writeClickFiles(bool montoolstub) {
         NetworkNode *nn = network_nodes[i];
         click_conf.open((write_conf + nn->label + ".conf").c_str());
         if (montoolstub && (nn->running_mode.compare("user") == 0)) {
-            click_conf << "require(blackadder_cinc); \n\nControlSocket(\"TCP\",55000);\n\n " << endl << endl;
+            click_conf << "require(blackadder_kc); \n\nControlSocket(\"TCP\",55000);\n\n " << endl << endl;
         } else {
-            click_conf << "require(blackadder_cinc);" << endl << endl;
+            click_conf << "require(blackadder_kc);" << endl << endl;
         }
         /*Blackadder Elements First*/
         click_conf << "globalconf::GlobalConf(MODE " << overlay_mode << ", NODEID " << nn->label << "," << endl;
@@ -438,9 +438,9 @@ void Domain::startClick() {
         /*now start click*/
         if (nn->running_mode.compare("user") == 0) {
             if (sudo) {
-                command = "ssh " + user + "@" + nn->testbed_ip + " \"sudo " + click_home + "bin/click " + write_conf + nn->label + ".conf > /tmp/cinc.debug 2>&1 &\"";
+                command = "ssh " + user + "@" + nn->testbed_ip + " \"sudo " + click_home + "bin/click " + write_conf + nn->label + ".conf > /tmp/kc.debug 2>&1 &\"";
             } else {
-                command = "ssh " + user + "@" + nn->testbed_ip + " \"" + click_home + "bin/click " + write_conf + nn->label + ".conf > /tmp/cinc.debug 2>&1 &\"";
+                command = "ssh " + user + "@" + nn->testbed_ip + " \"" + click_home + "bin/click " + write_conf + nn->label + ".conf > /tmp/kc.debug 2>&1 &\"";
             }
             cout << command << endl;
             ssh_command = popen(command.c_str(), "r");
@@ -476,7 +476,7 @@ void Domain::startTM() {
     }
     pclose(ssh_command);
     /*now start the TM*/
-    command = "ssh " + user + "@" + TM_node->testbed_ip + " \"/home/" + "/blackadder-cinc/TopologyManager/tm " + write_conf + "topology.graphml > /tmp/tm_cinc.debug 2>&1 &\"";
+    command = "ssh " + user + "@" + TM_node->testbed_ip + " \"/home/" + "/kanycast-cinc-combined/TopologyManager/tm " + write_conf + "topology.graphml > /tmp/tm_kc.debug 2>&1 &\"";
     cout << command << endl;
     ssh_command = popen(command.c_str(), "r");
     if (ssh_command == NULL) {
