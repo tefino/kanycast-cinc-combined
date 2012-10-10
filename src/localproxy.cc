@@ -632,7 +632,7 @@ void LocalProxy::handleRVNotification(Packet *p) {
     type = *(p->data());
     if(type == KC_INFORM_SUB)
     {
-        String bestpub = String((const char*) (p->data()+sizeof(type), NODEID_LEN)) ;
+        String bestpub = String((const char*) (p->data()+sizeof(type)), NODEID_LEN) ;
         unsigned int noofhops = 0 ;
         unsigned char noofsid = 0 ;
         unsigned char noofchunkid = 0 ;
