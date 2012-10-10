@@ -326,7 +326,7 @@ void Domain::writeClickFiles(bool montoolstub) {
                     }
                     click_conf <<"classifier" << j << "[1]->ToHost()"<<endl;
                 } else {
-                    click_conf << endl << "classifier" << j << "::Classifier(12/080a, 12/0901, 12/0902, 12/0903, 12/0904);" << endl;
+                    click_conf << endl << "classifier" << j << "::Classifier(12/080a, 12/0901, 12/0902, 12/0903, 12/0904, 12/0905);" << endl;
                     if (montoolstub && j == 0 && (nn->running_mode.compare("user") == 0)) {
                         click_conf << "fw[" << (j + 1) << "]->tsf" << j << "->outc::Counter()->todev" << j << ";" << endl;
                         click_conf << "fromdev" << j << "->classifier" << j << "[0]->inc::Counter()  -> [" << (j + 1) << "]fw;" << endl;
