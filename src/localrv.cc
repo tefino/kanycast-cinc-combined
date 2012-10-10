@@ -2067,9 +2067,9 @@ void LocalRV::kc_subscribe_root_scope(RemoteHost *_subscriber, String &ID, unsig
     } else {
         /*check if the strategies match*/
         if (sc->strategy == strategy) {
-            if (sc->updateSubscribers(fullID, _subscriber)) {
+            if (sc->updateSubscribers(ID, _subscriber)) {
                 /*add the scope to the subscriber's set*/
-                _subscriber->subscribedScopes.find_insert(StringSetItem(fullID));
+                _subscriber->subscribedScopes.find_insert(StringSetItem(ID));
                 click_chatter("LocalRV: cinc added subscriber %s to scope %s(%d)", _subscriber->remoteHostID.c_str(), sc->printID().c_str(), (int) strategy);
             } else {
                 ret = EXISTS;
@@ -2088,7 +2088,7 @@ void LocalRV::kc_subscribe_root_scope(RemoteHost *_subscriber, String &ID, unsig
                 sc->getIDs(file_scope_ids) ;
                 for(RemoteHostHashMapIter iter = pub_sub_Index.begin() ; iter != pub_sub_Index.end() ; iter++)
                 {
-                    if(iter->second->publishedScopes.find(fullID) != iter->second->publishedScopes.end())
+                    if(iter->second->publishedScopes.find(ID) != iter->second->publishedScopes.end())
                         publishers.find_insert(RemoteHostSetItem(iter->second)) ;
                 }
                 for(ScopeSetIter ss_iter = subscope.begin() ; ss_iter != subscope.end() ; ss_iter++)
@@ -2136,7 +2136,6 @@ void LocalRV::kc_subscribe_root_scope(RemoteHost *_subscriber, String &ID, unsig
             ret = STRATEGY_MISMATCH;
         }
     }
-    return ret;
 }
 
 
