@@ -156,9 +156,9 @@ void LocalRV::push(int in_port, Packet * p) {
             if(type == KC_SUB_SCOPE)
             {
                 if ((prefixID.length() == 0) && (ID.length() == PURSUIT_ID_LEN)) {
-                    kc_subscribe_root_scope(_subscriber, ID, strategy);
+                    kc_subscribe_root_scope(_remotehost, ID, strategy);
                 } else if ((prefixID.length() > 0) && (ID.length() == PURSUIT_ID_LEN)) {
-                    kc_subscribe_inner_scope(_subscriber, ID, prefixID, strategy);
+                    kc_subscribe_inner_scope(_remotehost, ID, prefixID, strategy);
                 } else {
                     click_chatter("LocalRV: error while subscribing to scope. ID: %s - prefixID: %s", ID.quoted_hex().c_str(), prefixID.quoted_hex().c_str());
                 }
