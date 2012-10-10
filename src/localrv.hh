@@ -431,7 +431,8 @@ public:
     void cinc_subscrip_scope(RemoteHost*, String&, String&, unsigned char&, Packet*) ;
 
 
-    void kc_subscribe_scope(RemoteHost*, String&, String&, unsigned char&) ;
+    void kc_subscribe_root_scope(RemoteHost*, String&, unsigned char&) ;
+    void kc_subscribe_inner_scope(RemoteHost*, String&, String&, unsigned char&) ;
 
     /**@brief kc: publish scope add a scope type, e.g. file, chunk.**/
     void kc_publish_scope(RemoteHost*, String&, String&, unsigned char, Packet*) ;

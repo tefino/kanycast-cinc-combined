@@ -155,7 +155,13 @@ void LocalRV::push(int in_port, Packet * p) {
             }
             if(type == KC_SUB_SCOPE)
             {
-                kc_subscribe_scope(_remotehost, ID, prefixID, strategy) ;
+                if ((prefixID.length() == 0) && (ID.length() == PURSUIT_ID_LEN)) {
+                    kc_subscribe_root_scope(_subscriber, ID, strategy);
+                } else if ((prefixID.length() > 0) && (ID.length() == PURSUIT_ID_LEN)) {
+                    kc_subscribe_inner_scope(_subscriber, ID, prefixID, strategy);
+                } else {
+                    click_chatter("LocalRV: error while subscribing to scope. ID: %s - prefixID: %s", ID.quoted_hex().c_str(), prefixID.quoted_hex().c_str());
+                }
             }
             if(type == KC_PUBLISH_SCOPE)
             {
@@ -2042,7 +2048,99 @@ unsigned int LocalRV::kc_publish_inner_scope(RemoteHost *_publisher, String &ID,
     }
     return ret;
 }
-void LocalRV::kc_subscribe_scope(RemoteHost* _subscriber, String& ID, String& prefixID, unsigned char& strategy)
+void LocalRV::kc_subscribe_root_scope(RemoteHost *_subscriber, String &ID, unsigned char &strategy) {
+    unsigned int ret;
+    Scope *sc = NULL;
+    sc = scopeIndex.get(ID);
+    if (sc == scopeIndex.default_value()) {
+        /*the root scope does not exist. Create it and add subscription*/
+        sc = new Scope(strategy, NULL);
+        scopeIndex.set(ID, sc);
+        if (sc->updateSubscribers(ID, _subscriber)) {
+            /*add the scope to the subscriber's set*/
+            _subscriber->subscribedScopes.find_insert(StringSetItem(ID));
+            click_chatter("LocalRV: added subscriber %s to (new) scope %s (%d)", _subscriber->remoteHostID.c_str(), sc->printID().c_str(), (int) strategy);
+            ret = SUCCESS;
+        } else {
+            ret = EXISTS;
+        }
+    } else {
+        /*check if the strategies match*/
+        if (sc->strategy == strategy) {
+            if (sc->updateSubscribers(fullID, _subscriber)) {
+                /*add the scope to the subscriber's set*/
+                _subscriber->subscribedScopes.find_insert(StringSetItem(fullID));
+                click_chatter("LocalRV: cinc added subscriber %s to scope %s(%d)", _subscriber->remoteHostID.c_str(), sc->printID().c_str(), (int) strategy);
+            } else {
+                ret = EXISTS;
+                click_chatter("LocalRV: this subscription already exist, but I still rendevzous") ;
+            }
+            sc->request_count++ ;
+            ScopeSet subscope ;
+            sc->getSubscopes(subscope) ;
+            if(sc->scope_type == FILE_LEVEL)
+            {
+                StringSet file_scope_ids ;
+                RemoteHostSet subscribers ;
+                StringSet cache_router_ID ;
+                RemoteHostSet publishers ;
+                subscribers.find_insert(RemoteHostSetItem(_subscriber));
+                sc->getIDs(file_scope_ids) ;
+                for(RemoteHostHashMapIter iter = pub_sub_Index.begin() ; iter != pub_sub_Index.end() ; iter++)
+                {
+                    if(iter->second->publishedScopes.find(fullID) != iter->second->publishedScopes.end())
+                        publishers.find_insert(RemoteHostSetItem(iter->second)) ;
+                }
+                for(ScopeSetIter ss_iter = subscope.begin() ; ss_iter != subscope.end() ; ss_iter++)
+                {
+                    ss_iter->_scpointer->request_count++ ;
+                    /*then find all InformationItems for which the _subscriber is interested in*/
+                    InformationItemSet _informationitems;
+                    ss_iter->_scpointer->getInformationItems(_informationitems);
+                    /*then, for each one do the rendez-vous process*/
+                    InformationItemSetIter pub_it;
+                    for(int i = 0 ; i < ss_iter->_scpointer->cache_router.size() &&\
+                                    cache_router_ID.size() < gc->num_router ; i++)
+                    {
+                        cache_router_ID.find_insert(StringSetItem(ss_iter->_scpointer->cache_router[i])) ;
+                    }
+                    StringSet SIDs ;
+                    //get all the SIDs that represent this scope
+                    ss_iter->_scpointer->getIDs(SIDs) ;
+                    //if information are published under this scope, then rendevzous
+                    if((ss_iter->_scpointer->request_count%POPTHRESHOLD)==0)
+                    {
+                        unsigned char noofrouter = ss_iter->_scpointer->cache_router.size() ;
+                        unsigned int hotdegree = ss_iter->_scpointer->request_count/POPTHRESHOLD ;
+                        if(hotdegree <= noofrouter && hotdegree != 0 && hotdegree > ss_iter->_scpointer->current_cache)
+                        {
+                            cinc_askPUBtocache(SIDs, publishers, ss_iter->_scpointer->cache_router[hotdegree-1]) ;
+                            ss_iter->_scpointer->current_cache++ ;
+                            ss_iter->_scpointer->current_cache_entry++ ;
+                            click_chatter("LR: ask pub cache: %s to %s", SIDs.begin()->_strData.quoted_hex().c_str(), ss_iter->_scpointer->cache_router[hotdegree-1].c_str()) ;
+                        }
+                        if(hotdegree > ss_iter->_scpointer->current_cache_entry && hotdegree <= noofrouter && hotdegree != 0)
+                        {
+                            Vector<String> cache_router ;
+                            cache_router.push_back(ss_iter->_scpointer->cache_router[hotdegree-1]) ;
+                            cinc_operate_cache_list_entry(CINC_ADD_ENTRY, SIDs, cache_router) ;
+                            ss_iter->_scpointer->current_cache_entry++ ;
+                        }
+                    }
+                }
+                kc_rendezvous(KC_RENDEZVOUS_TYPE, publishers, subscribers, cache_router_ID, file_scope_ids, subscope) ;
+            }
+            ret = SUCCESS;
+        } else {
+            click_chatter("LocalRV: strategies don't match....aborting subscription");
+            ret = STRATEGY_MISMATCH;
+        }
+    }
+    return ret;
+}
+
+
+void LocalRV::kc_subscribe_inner_scope(RemoteHost* _subscriber, String& ID, String& prefixID, unsigned char& strategy)
 {
     Scope *sc;
     Scope *fatherScope;
