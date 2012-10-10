@@ -381,7 +381,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 for (int i = 0; i < (int) noofsid; i++) {
                     IDLength = *(p->data()+sizeof (type)+sizeof(noofcr)+sizeof(noofsid)+index);
                     IDs.push_back(String((const char *) (p->data()+sizeof(type)+sizeof(noofcr)+\
-                                  sizeof(noofsid)+sizeof(IDLength)+index), IDLength*PURSUIT_ID_LEN);
+                                  sizeof(noofsid)+sizeof(IDLength)+index), IDLength*PURSUIT_ID_LEN));
                     index = index + sizeof (IDLength) + IDLength*PURSUIT_ID_LEN;
                 }
                 ActiveSubscription* actsub ;
