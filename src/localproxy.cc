@@ -318,7 +318,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 break ;
             case KC_CACHE_POSITIVE:
             {
-                String routerID = String((const char*) (p->data()+sizeof(type), NODEID_LEN)) ;
+                String routerID = String((const char*) (p->data()+sizeof(type)), NODEID_LEN) ;
                 unsigned int noofhops = 0 ;
                 unsigned char noofsid = 0 ;
                 unsigned char noofchunkid = 0 ;
