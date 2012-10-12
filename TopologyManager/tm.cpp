@@ -306,7 +306,8 @@ void handleRequest(char *request, int request_len) {
             idx += PURSUIT_ID_LEN;
             subscribers.insert(nodeID);
         }
-        unsigned int packet_size = request_len-(sizeof(request_type)+sizeof(no_publishers)+sizeof(noofrouter)+sizeof(no_subscribers)+idx)+FID_LEN ;
+        unsigned int packet_size = request_len-(sizeof(request_type)+sizeof(no_publishers)+sizeof(noofrouter)+\
+                                   sizeof(no_subscribers)+idx)+FID_LEN+sizeof(noofrouter) ;
 
 //        tm_igraph.calculateMulticastFID(tm_igraph.nodeID, publishers, to_pub_fid) ;
 //        Bitvector pub2sub_fid(FID_LEN * 8) ;
@@ -345,8 +346,10 @@ void handleRequest(char *request, int request_len) {
         char* packet2cache ;
         packet2cache = (char*) malloc(packet_size) ;
         memcpy(packet2cache, request+sizeof(request_type)+sizeof(no_publishers)+sizeof(noofrouter)+sizeof(no_subscribers)+idx,\
-               packet_size-FID_LEN) ;
-        memcpy(packet2cache+packet_size-FID_LEN, cache2sub_fid._data, FID_LEN) ;
+               packet_size-FID_LEN-sizeof(noofrouter)) ;
+        memcpy(packet2cache+packet_size-FID_LEN-sizeof(noofrouter), cache2sub_fid._data, FID_LEN) ;
+        noofrouter++ ;
+        memcpy(packet2cache+packet_size-sizeof(noofrouter), &noofrouter, sizeof(noofrouter)) ;
         response_type = KC_CACHE_CHECK ;
         ba->notify_node(response_type, to_cr_fid, packet2cache, packet_size) ;
         free(packet2cache) ;
