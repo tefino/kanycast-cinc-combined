@@ -348,7 +348,6 @@ void handleRequest(char *request, int request_len) {
         memcpy(packet2cache, request+sizeof(request_type)+sizeof(no_publishers)+sizeof(noofrouter)+sizeof(no_subscribers)+idx,\
                packet_size-FID_LEN-sizeof(noofrouter)) ;
         memcpy(packet2cache+packet_size-FID_LEN-sizeof(noofrouter), cache2sub_fid._data, FID_LEN) ;
-        noofrouter++ ;
         memcpy(packet2cache+packet_size-sizeof(noofrouter), &noofrouter, sizeof(noofrouter)) ;
         response_type = KC_CACHE_CHECK ;
         ba->notify_node(response_type, to_cr_fid, packet2cache, packet_size) ;
