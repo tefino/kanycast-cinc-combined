@@ -1061,6 +1061,13 @@ bool LocalProxy::findLocalSubscribers(Vector<String> &IDs, LocalHostStringHashMa
                 foundSubscribers = true;
             }
         }
+        as = activeSubscriptionIndex.get(knownID.substring(0, knownID.length() - PURSUIT_ID_LEN*2));
+        if (as != activeSubscriptionIndex.default_value()) {
+            for (set_it = as->subscribers.begin(); set_it != as->subscribers.end(); set_it++) {
+                _localSubscribers.set((*set_it)._lhpointer, knownID);
+                foundSubscribers = true;
+            }
+        }
     }
     return foundSubscribers;
 }
