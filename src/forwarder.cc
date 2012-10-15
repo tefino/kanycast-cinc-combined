@@ -329,8 +329,8 @@ void Forwarder::push(int in_port, Packet *p) {
         {//get the reverse src and dst
             memcpy(reverse_src.data(), p->data(), MAC_LEN) ;
             memcpy(reverse_dst.data(), p->data()+MAC_LEN, MAC_LEN) ;
-            memcpy(&noofhop, p->data()+14+sizeof(unsigned char), sizeof(noofhop)) ;
-            memcpy(reverse_FID._data, p->data()+14+sizeof(unsigned char)+sizeof(noofhop), FID_LEN) ;
+            memcpy(&noofhop, p->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN, sizeof(noofhop)) ;
+            memcpy(reverse_FID._data, p->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN+sizeof(noofhop), FID_LEN) ;
         }
         testFID.negate();
         if (!testFID.zero()) {
