@@ -1620,6 +1620,7 @@ void LocalProxy::kc_beginRetrieve(ActiveSubscription* actsub)
         unsigned int packet_size = 0 ;
         unsigned chunkindex = 0 ;
         packet_size = FID_LEN+partsize+sizeof(noofchunk)+noofchunk*PURSUIT_ID_LEN+FID_LEN ;
+        packet = Packet::make(20, NULL, packet_size, 0) ;
         memcpy(packet->data(), holderID_fid2pub[iter->first]._data, FID_LEN) ;
         memcpy(packet->data()+FID_LEN, partcontent, partsize) ;
         memcpy(packet->data()+FID_LEN+partsize, &noofchunk, sizeof(noofchunk)) ;
