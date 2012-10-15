@@ -668,12 +668,12 @@ void LocalProxy::handleRVNotification(Packet *p) {
                 actsub->kc_noofcr++ ;
                 for(int ic = 0 ; ic < (int) noofchunkid ; ic++)
                 {
-                    unsigned int tempdis = actsub->kc_rp_dis.get(chunkids[i]) ;
+                    unsigned int tempdis = actsub->kc_rp_dis.get(chunkids[ic]) ;
                     if(tempdis == actsub->kc_rp_dis.default_value() || tempdis > noofhops){
-                        actsub->kc_rp_dis.set(chunkids[i], noofhops) ;
-                        actsub->kc_rp_FID.set(chunkids[i], fid2pub) ;
-                        actsub->kc_rp_p2sfid.set(chunkids[i], fid2sub) ;
-                        actsub->kc_chunkid_nodeid.set(chunkids[i], bestpub) ;
+                        actsub->kc_rp_dis.set(chunkids[ic], noofhops) ;
+                        actsub->kc_rp_FID.set(chunkids[ic], fid2pub) ;
+                        actsub->kc_rp_p2sfid.set(chunkids[ic], fid2sub) ;
+                        actsub->kc_chunkid_nodeid.set(chunkids[ic], bestpub) ;
                     }
                 }
                 break ;
