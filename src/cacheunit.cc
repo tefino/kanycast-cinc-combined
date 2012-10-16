@@ -425,6 +425,7 @@ void CacheUnit::push(int port, Packet *p)
                                 CacheEntry* ce = (*cache_iter) ;
                                 cache.erase(cache_iter) ;
                                 cache.push_back(ce) ;
+                                break ;
                             }
                         }
                     }
