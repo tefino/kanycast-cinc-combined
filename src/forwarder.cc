@@ -455,8 +455,8 @@ void Forwarder::push(int in_port, Packet *p) {
                 {
                     p->pull(14 + FID_LEN);
                     payload = p->uniqueify();
-                    memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN, &noofhop, sizeof(noofhop)) ;
-                    memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN+sizeof(noofhop), reverse_FID._data, FID_LEN) ;
+                    memcpy(payload->data()+sizeof(unsigned char)+NODEID_LEN, &noofhop, sizeof(noofhop)) ;
+                    memcpy(payload->data()+sizeof(unsigned char)+NODEID_LEN+sizeof(noofhop), reverse_FID._data, FID_LEN) ;
                     output(5).push(payload);
 
                 }
