@@ -334,7 +334,7 @@ void CacheUnit::push(int port, Packet *p)
                 {
                     response_type = KC_CACHE_POSITIVE ;
                     BABitvector fid2cr(FID_LEN*8) ;
-                    unsigned char noofhop = 0 ;
+                    unsigned int noofhop = 0 ;
                     unsigned char noofchunk = chunkid.size() ;
                     WritablePacket* reply_packet ;
                     unsigned int chunk_index = 0 ;
