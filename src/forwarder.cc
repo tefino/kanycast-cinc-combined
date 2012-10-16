@@ -391,6 +391,7 @@ void Forwarder::push(int in_port, Packet *p) {
                     {
                         memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN, &noofhop, sizeof(noofhop)) ;
                         memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN+sizeof(noofhop), reverse_FID._data, FID_LEN) ;
+                        output(fe->port).push(payload);
                         break ;
                         //pay attention here, the cache2sub response should only be forwarded once
                     }
