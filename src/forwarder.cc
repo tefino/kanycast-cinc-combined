@@ -387,6 +387,11 @@ void Forwarder::push(int in_port, Packet *p) {
                     /*source MAC*/
                     memcpy(payload->data() + MAC_LEN, fe->src->data(), MAC_LEN);
                     data_forward_byte += payload->length() ;
+                    if(data_forward_byte >= oneGB)
+                    {
+                        data_forward_byte = data_forward_byte - oneGB ;
+                        data_forward_GB++ ;
+                    }
                     if(in_port == 11)
                     {
                         memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN, &noofhop, sizeof(noofhop)) ;
@@ -394,11 +399,6 @@ void Forwarder::push(int in_port, Packet *p) {
                         output(fe->port).push(payload);
                         break ;
                         //pay attention here, the cache2sub response should only be forwarded once
-                    }
-                    if(data_forward_byte >= oneGB)
-                    {
-                        data_forward_byte = data_forward_byte - oneGB ;
-                        data_forward_GB++ ;
                     }
                     /*push the packet to the appropriate ToDevice Element*/
                     output(fe->port).push(payload);
