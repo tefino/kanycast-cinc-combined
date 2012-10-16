@@ -409,7 +409,7 @@ void CacheUnit::push(int port, Packet *p)
                     }
                     for(cache_iter = cache.begin() ; cache_iter != cache.end() ; cache_iter++)
                     {
-                        if((*cache_iter)->matchSID(IDs))
+                        if((*cache_iter)->matchSID(filechunkid))
                         {
                             if((*cache_iter)->current_noofiid >= (*cache_iter)->total_noofiid)
                             {
