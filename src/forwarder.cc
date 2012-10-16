@@ -330,6 +330,7 @@ void Forwarder::push(int in_port, Packet *p) {
             memcpy(reverse_src.data(), p->data(), MAC_LEN) ;
             memcpy(reverse_dst.data(), p->data()+MAC_LEN, MAC_LEN) ;
             memcpy(&noofhop, p->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN, sizeof(noofhop)) ;
+            noofhop++ ;
             memcpy(reverse_FID._data, p->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN+sizeof(noofhop), FID_LEN) ;
         }
         testFID.negate();
@@ -388,7 +389,6 @@ void Forwarder::push(int in_port, Packet *p) {
                     data_forward_byte += payload->length() ;
                     if(in_port == 11)
                     {
-                        noofhop++ ;
                         memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN, &noofhop, sizeof(noofhop)) ;
                         memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN+sizeof(noofhop), reverse_FID._data, FID_LEN) ;
                         break ;
@@ -454,7 +454,6 @@ void Forwarder::push(int in_port, Packet *p) {
                 {
                     p->pull(14 + FID_LEN);
                     payload = p->uniqueify();
-                    noofhop++ ;
                     memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN, &noofhop, sizeof(noofhop)) ;
                     memcpy(payload->data()+14+FID_LEN+sizeof(unsigned char)+NODEID_LEN+sizeof(noofhop), reverse_FID._data, FID_LEN) ;
                     output(5).push(payload);
