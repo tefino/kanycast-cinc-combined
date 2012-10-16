@@ -324,7 +324,7 @@ void Forwarder::push(int in_port, Packet *p) {
         BABitvector reverse_FID(FID_LEN*8) ;//KC: modify the sub2cr fid
         EtherAddress reverse_dst ;//KC: modify the sub2cr fid
         EtherAddress reverse_src ;//KC: modify the sub2cr fid
-        unsigned char noofhop = 0 ;
+        unsigned int noofhop = 0 ;
         if(in_port == 11)
         {//get the reverse src and dst
             memcpy(reverse_src.data(), p->data(), MAC_LEN) ;
