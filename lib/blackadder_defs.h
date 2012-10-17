@@ -109,6 +109,9 @@
 //kc: cache router doesn't find the content and tell teh subscriber
 #define KC_REQUEST_DATA 131
 //kc: ask cache router or publisher to push data
+#define KC_CACHE_HIT_FAILED 132
+//kc: this message indicate that the requested chunk has already been flushed, subscriber should ask publisher
+
 
 
 /*the type of scope*/

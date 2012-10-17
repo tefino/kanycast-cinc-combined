@@ -400,6 +400,43 @@ void LocalProxy::push(int in_port, Packet * p) {
                 p->kill() ;
                 break ;
             }
+            case KC_CACHE_HIT_FAILED:
+            {
+                unsigned char noofsid = *(p->data()+sizeof(type)) ;
+                for (int i = 0; i < (int) noofsid; i++) {
+                    IDLength = *(p->data()+sizeof(type)+sizeof(noofsid)+index);
+                    IDs.push_back(String((const char *) (p->data()+sizeof(type)+\
+                                  sizeof(noofsid)+sizeof(IDLength)+index), IDLength*PURSUIT_ID_LEN));
+                    index = index + sizeof (IDLength) + IDLength*PURSUIT_ID_LEN;
+                }
+                unsigned char noofchunkid = *(p->data()+sizeof(type)+sizeof(noofsid)+index) ;
+                unsigned int chunk_index = 0 ;
+                Vector<String> chunkids ;
+                for(int i = 0 ; i < (int) noofchunkid ; i++)
+                {
+                    chunkids.push_back(String((const char*) (p->data()+sizeof(type)+\
+                                       sizeof(noofsid)+index+sizeof(noofchunkid)+chunk_index), PURSUIT_ID_LEN)) ;
+                    chunk_index += PURSUIT_ID_LEN ;
+                }
+                ActiveSubscription *actsub ;
+                for(int i = 0 ; i < (int) noofsid ; i++)
+                {
+                    actsub = activeSubscriptionIndex.get(IDs[i]) ;
+                    if(actsub != activeSubscriptionIndex.default_value()){
+                        WritablePacket* request_packet = Packet::make(20, NULL, FID_LEN+p->length()+FID_LEN,0) ;
+                        unsigned char request_type = KC_REQUEST_DATA ;
+                        memcpy(request_packet->data(), actsub->fid2pub._data, FID_LEN) ;
+                        memcpy(request_packet->data()+FID_LEN, &request_type, sizeof(request_type)) ;
+                        memcpy(request_packet->data()+FID_LEN+sizeof(request_type), p->data()+sizeof(type),\
+                               p->length()-sizeof(type)) ;
+                        memcpy(request_packet->data()+FID_LEN+sizeof(request_type)+p->length()-sizeof(type),\
+                               actsub->fid2sub._data, FID_LEN) ;
+                        break ;
+                    }
+                }
+                p->kill() ;
+                break ;
+            }
         }
     }
 }

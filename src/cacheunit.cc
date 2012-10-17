@@ -390,6 +390,7 @@ void CacheUnit::push(int port, Packet *p)
                 }
                 unsigned char noofchunk = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index);
                 Vector<String> chunkid ;
+                Vector<String> flushed_chunkid ;//this variable will collect the chunk IDs that have been flushed
                 unsigned int chunk_index = 0 ;
                 for(int i = 0 ; i < (int) noofchunk ; i++)
                 {
@@ -402,6 +403,7 @@ void CacheUnit::push(int port, Packet *p)
                        chunk_index, FID_LEN) ;
                 for(int i = 0 ; i < noofchunk ; i++)
                 {
+                    bool sentback = false ;
                     Vector<String> filechunkid ;
                     for(int j = 0 ; j < numberOfIDs ; j++)
                     {
@@ -421,15 +423,40 @@ void CacheUnit::push(int port, Packet *p)
                                     cache_hit_Bill++ ;
                                 }
                                 sendbackData(*cache_iter, filechunkid, fid2sub) ;
+                                //the cache is requested, rearrange the cache
                                 (*cache_iter)->last_access_time = time(NULL) ;
                                 CacheEntry* ce = (*cache_iter) ;
                                 cache.erase(cache_iter) ;
                                 cache.push_back(ce) ;
+                                sentback = true ;
                                 break ;
                             }
                         }
                     }
+                    if(!sentback)
+                        flushed_chunkid.push_back(chunkid[i]) ;//this chunkid has been flushed
                 }
+                if(!flushed_chunkid.empty())
+                {
+                    WritablePacket* return_packet ;
+                    unsigned char return_type = KC_CACHE_HIT_FAILED ;
+                    unsigned char nooffailedchunk = flushed_chunkid.size() ;
+                    return_packet = Packet::make(20, NULL, FID_LEN+sizeof(return_type)+sizeof(numberOfIDs)+index+\
+                                                 sizeof(nooffailedchunk)+nooffailedchunk*PURSUIT_ID_LEN, 0) ;
+                    memcpy(return_packet->data(), fid2sub._data, FID_LEN) ;
+                    memcpy(return_packet->data()+FID_LEN, &return_type, sizeof(return_type)) ;
+                    memcpy(return_packet->data()+FID_LEN+sizeof(return_type), p->data()+sizeof(type),\
+                           sizeof(numberOfIDs)+index) ;
+                    memcpy(return_packet->data()+FID_LEN+sizeof(return_type)+sizeof(numberOfIDs)+index,\
+                           &nooffailedchunk, sizeof(nooffailedchunk)) ;
+                    for(int i = 0 ; i < flushed_chunkid.size() ; i++)
+                    {
+                        memcpy(return_packet->data()+FID_LEN+sizeof(return_type)+sizeof(numberOfIDs)+index+\
+                           sizeof(nooffailedchunk)+i*PURSUIT_ID_LEN, flushed_chunkid[i].c_str(), PURSUIT_ID_LEN) ;
+                    }
+                    output(1).push(return_packet) ;
+                }
+
                 p->kill() ;
                 break ;
             }
