@@ -349,8 +349,6 @@ void LocalProxy::push(int in_port, Packet * p) {
                 {
                     actsub = activeSubscriptionIndex.get(IDs[i]) ;
                     if(actsub != activeSubscriptionIndex.default_value()){
-                        actsub->fid2pub = fid2pub ;
-                        actsub->fid2sub = fid2sub ;
                         actsub->kc_noofcr++ ;
                         for(int ic = 0 ; ic < (int) noofchunkid ; ic++)
                         {
