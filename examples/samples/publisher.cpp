@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
         file_num++ ;
     }
     file_num = 1 ;
-    scope_type = CHUNK_TYPE ;
+    scope_type = CHUNK_LEVEL ;
     while(file_num <= FILESIZE)
     {
         string fileid ;
