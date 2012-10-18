@@ -92,6 +92,7 @@ int main(int argc, char* argv[]) {
     unsigned int file_num = 1 ;
     string bin_prefix_id ;
     string bin_id ;
+    unsigned char scope_type = FILE_LEVEL ;
     while(file_num <= FILESIZE)
     {
         string fileid ;
@@ -103,11 +104,12 @@ int main(int argc, char* argv[]) {
         string prefix_id ;
         bin_id = hex_to_chararray(fileid);
         bin_prefix_id = hex_to_chararray(prefix_id);
-        ba->publish_scope(bin_id, bin_prefix_id, DOMAIN_LOCAL, NULL, 0);
+        ba->kc_publish(bin_id, bin_prefix_id, DOMAIN_LOCAL, scope_type);
         usleep(10) ;
         file_num++ ;
     }
     file_num = 1 ;
+    scope_type = CHUNK_TYPE ;
     while(file_num <= FILESIZE)
     {
         string fileid ;
@@ -127,8 +129,8 @@ int main(int argc, char* argv[]) {
 
             bin_id = hex_to_chararray(chunkid) ;
             bin_prefix_id = hex_to_chararray(fileid) ;
-            ba->publish_scope(bin_id, bin_prefix_id, DOMAIN_LOCAL, NULL, 0);
-            usleep(1000) ;
+            ba->kc_publish(bin_id, bin_prefix_id, DOMAIN_LOCAL, scope_type);
+            usleep(3000) ;
             chunk_num++ ;
         }
         file_num++ ;
@@ -165,7 +167,7 @@ int main(int argc, char* argv[]) {
                 bin_id = hex_to_chararray(segid) ;
                 bin_prefix_id = hex_to_chararray(file_chunk_id) ;
                 ba->publish_info(bin_id, bin_prefix_id, DOMAIN_LOCAL, NULL, 0) ;
-                usleep(1000) ;
+                usleep(3000) ;
                 seg_num++ ;
             }
             chunk_num++ ;
@@ -193,6 +195,11 @@ int main(int argc, char* argv[]) {
                 cout << "CINC_PUSH_TO_CACHE: " << chararray_to_hex(ev.id) << endl;
                 ba->publish_data(ev.type, ev.id, IMPLICIT_RENDEZVOUS, ev.to_sub_FID._data, ev.fid_len, payload, payload_size);
                 break ;
+	    case KC_REQUEST_DATA:
+		data_sent_num++ ;
+		cout<<"KC_REQUEST_DATA:"<<chararray_to_hex(ev.id) << endl;
+		ba->publish_data(PUBLISH_DATA, ev.id, IMPLICIT_RENDEZVOUS, ev.to_sub_FID._data, ev.fid_len, payload, payload_size);
+		break;
             case STOP_PUBLISH:
                 cout << "STOP_PUBLISH: " << chararray_to_hex(ev.id) << endl;
                 break ;
