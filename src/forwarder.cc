@@ -151,7 +151,7 @@ void Forwarder::cleanup(CleanupStage stage) {
         }
     }
     FILE *ft ;
-    if( (ft = fopen("/home/forwarder_cinc.dat", "w+")) == NULL )
+    if( (ft = fopen("/home/forwarder_kc.dat", "w+")) == NULL )
         click_chatter("forwarder fopen error") ;
     fprintf(ft, "data_sent_byte: %d\ndata_sent_GB: %d\ndata_forward_byte: %d\ndata_forward_GB: %d\n",
             data_sent_byte, data_sent_GB, data_forward_byte, data_forward_GB) ;

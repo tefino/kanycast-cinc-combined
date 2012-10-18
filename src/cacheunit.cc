@@ -113,7 +113,7 @@ int CacheUnit::initialize(ErrorHandler *errh)
 void CacheUnit::cleanup(CleanupStage stage)
 {
     FILE *ft ;
-    if( (ft = fopen("/home/cacheunit_cinc.dat", "w+")) == NULL )
+    if( (ft = fopen("/home/cacheunit_kc.dat", "w+")) == NULL )
         click_chatter("cacheunit fopen error");
     fprintf(ft, "cache_hit: %d\ncache_hit_Bill: %d\ncache_replace: %d\ncache_replace_Bill: %d\n",
             cache_hit, cache_hit_Bill, cache_replace, cache_replace_Bill) ;
