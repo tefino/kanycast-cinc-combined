@@ -38,6 +38,7 @@ bool CacheEntry::matchIID(Vector<String>& fullIDs)
     return ret ;
 }
 
+//cache unit stores chunks, subscriber only specifies file ID
 bool CacheEntry::matchFileID(Vector<String>& input_fileID, String& res_chunkid)
 {
     for(int i = 0 ; i < input_fileID.size() ; i++)
@@ -45,8 +46,9 @@ bool CacheEntry::matchFileID(Vector<String>& input_fileID, String& res_chunkid)
         for(int j = 0 ; j < SIDs.size() ; j++)
         {
             if( SIDs[j].substring(0, SIDs[j].length()-PURSUIT_ID_LEN) == input_fileID[i] )
-            {
+            {//check the file ID 
                 res_chunkid = SIDs[j].substring(SIDs[j].length()-PURSUIT_ID_LEN, PURSUIT_ID_LEN) ;
+				//return the chunk ID
                 return true ;
             }
         }
@@ -150,9 +152,10 @@ void CacheUnit::push(int port, Packet *p)
         {
             case CINC_REQ_DATA_CACHE:
             {
-                //this is a sub_req message
+                //this is a cinc sub_req message
                 bool request_cache = true ;
                 numberOfIDs = *(p->data() + sizeof (type));
+				//get SID
                 for (int i = 0; i < (int) numberOfIDs; i++) {
                     IDLength = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index);
                     IDs.push_back(String((const char *) (p->data() + sizeof (type) + sizeof (numberOfIDs) +\
@@ -162,9 +165,9 @@ void CacheUnit::push(int port, Packet *p)
                 index += sizeof (numberOfIDs) ;
                 p->pull(sizeof(type)) ;
                 for( cache_iter = cache.begin() ; cache_iter != cache.end() ; cache_iter++ )
-                {
+                {//check every cache entry
                     if((*cache_iter)->matchSID(IDs))
-                    {
+                    {//if cache found
                         request_cache = false ;
                         if((*cache_iter)->current_noofiid >= (*cache_iter)->total_noofiid)
                         {
@@ -179,6 +182,7 @@ void CacheUnit::push(int port, Packet *p)
                             memcpy(backfid._data, p->data()+index, FID_LEN) ;
                             sendbackData(*cache_iter, IDs, backfid) ;
                             (*cache_iter)->last_access_time = time(NULL) ;
+							//rearrange the cache
                             CacheEntry* ce = (*cache_iter) ;
                             cache.erase(cache_iter) ;
                             cache.push_back(ce) ;
@@ -188,6 +192,7 @@ void CacheUnit::push(int port, Packet *p)
 
                     }
                 }
+				//If get here, cache hit failed, notify the subscriber
                 unsigned char res_type = CINC_CACHE_HIT_FAILED ;
                 WritablePacket* res_packet ;
                 unsigned int packet_size = FID_LEN+sizeof(res_type)+index ;
@@ -267,7 +272,7 @@ void CacheUnit::push(int port, Packet *p)
                                   sizeof (IDLength) + index), IDLength * PURSUIT_ID_LEN);
                     index = index + sizeof (IDLength) + IDLength*PURSUIT_ID_LEN;
                     IDs.push_back(tempid) ;
-                    cache_list.find_insert(tempid) ;
+                    cache_list.find_insert(StringSetItem(tempid)) ;
                     click_chatter("CU: cache data: %s", IDs[0].quoted_hex().c_str()) ;
                 }
                 unsigned int noofiid = 0 ;
@@ -303,7 +308,7 @@ void CacheUnit::push(int port, Packet *p)
                     IDLength = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index);
                     String tempid = String((const char *) (p->data() + sizeof (type) + sizeof (numberOfIDs) +\
                                   sizeof (IDLength) + index), IDLength * PURSUIT_ID_LEN);
-                    cache_list.find_insert(tempid) ;
+                    cache_list.find_insert(StringSetItem(tempid)) ;
                     index = index + sizeof (IDLength) + IDLength*PURSUIT_ID_LEN;
                     click_chatter("CU: add entry ID: %s", tempid.quoted_hex().c_str()) ;
                 }
@@ -323,11 +328,14 @@ void CacheUnit::push(int port, Packet *p)
                 memcpy(fid2sub._data, p->data() + sizeof (type) + sizeof (numberOfIDs) + index, FID_LEN) ;
                 unsigned char noofcr = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index+FID_LEN);
                 Vector<String> chunkid ;
+				StringSet chunkidset ;
                 for( int i = 0 ; i < cache.size() ; i++ )
                 {
                     String tempstr ;
-                    if(cache[i]->matchFileID(IDs, tempstr))
+					if(cache[i]->matchFileID(IDs, tempstr)){
+						chunkidset.find_insert(StringSetItem(tempstr)) ;
                         chunkid.push_back(tempstr) ;
+					}
                 }
                 unsigned char response_type = 0 ;
                 if(!chunkid.empty())
@@ -376,6 +384,70 @@ void CacheUnit::push(int port, Packet *p)
                            p->data()+sizeof(type), sizeof(numberOfIDs)+index) ;
                     output(1).push(reply_packet) ;
                 }
+
+				for(StringSetIter iter = cache_list.begin() ; iter != cache_list.end() ; iter++)
+				{
+					for(int i = 0 ; i < (int) numberOfIDs; i++)
+					{
+						if(iter->_strData.substring(0, iter->_strData.length()-PURSUIT_ID_LEN) == IDs[i])
+						{
+							String tempid = iter->_strData.substring(iter->_strData.length()-PURSUIT_ID_LEN, PURSUIT_ID_LEN) ;
+							if(chunkidset.find(tempid) == chunkidset.end())
+							{
+								String tempfilechunkid = IDs[i]+tempid ;
+								WritablePacket* req_packet ;
+								unsigned char req_type = CINC_CACHE_AGAIN ;
+								unsigned char idlen = 1 ;
+								unsigned char preidlen = tempfilechunkid.length()/PURSUIT_ID_LEN - 1 ;
+								unsigned int req_size = sizeof(req_type)+sizeof(idlen)+sizeof(preidlen)+tempfilechunkid.length();
+								unsigned int strategy = IMPLICIT_RENDEZVOUS ;
+								req_packet = Packet::make(20, NULL, req_size, 0) ;
+								memcpy(req_packet->data(), &req_type, sizeof(req_type)) ;
+								memcpy(req_packet->data()+sizeof(req_type), &idlen, sizeof(idlen)) ;
+								memcpy(req_packet->data()+sizeof(req_type)+sizeof(idlen), tempfilechunkid.substring(PURSUIT_ID_LEN).c_str(), PURSUIT_ID_LEN) ;
+								memcpy(req_packet->data()+sizeof(req_type)+sizeof(idlen)+PURSUIT_ID_LEN, &preidlen, sizeof(preidlen)) ;
+								memcpy(req_packet->data()+sizeof(req_type)+sizeof(idlen)+PURSUIT_ID_LEN+sizeof(preidlen),\
+									tempfilechunkid.substring(0,tempfilechunkid.length()-PURSUIT_ID_LEN).c_str(), tempfilechunkid.length()-PURSUIT_ID_LEN) ;
+								memcpy(req_packet->data()+sizeof(req_type)+sizeof(idlen)+PURSUIT_ID_LEN+sizeof(preidlen)+tempfilechunkid.length()-PURSUIT_ID_LEN,\
+									&strategy, sizeof(strategy)) ;
+								BABitvector RVFID(FID_LEN*8) ;
+								RVFID = gc->defaultRV_dl ;
+								WritablePacket *p1, *p2;
+								if ((RVFID.zero()) || (RVFID == gc->iLID)) {
+									/*this should be a request to the RV element running locally*/
+									/*This node is the RV point for this request*/
+									/*interact using the API - differently than below*/
+									/*these events are going to be PUBLISHED_DATA*/
+									unsigned char typeOfAPIEvent = PUBLISHED_DATA;
+									unsigned char IDLengthOfAPIEvent = gc->nodeRVScope.length() / PURSUIT_ID_LEN;
+									/***********************************************************/
+									p1 = req_packet->push(sizeof (typeOfAPIEvent) + sizeof (IDLengthOfAPIEvent) + gc->nodeRVScope.length());
+									memcpy(p1->data(), &typeOfAPIEvent, sizeof (typeOfAPIEvent));
+									memcpy(p1->data() + sizeof (typeOfAPIEvent), &IDLengthOfAPIEvent, sizeof (IDLengthOfAPIEvent));
+									memcpy(p1->data() + sizeof (typeOfAPIEvent) + sizeof (IDLengthOfAPIEvent), gc->nodeRVScope.c_str(), gc->nodeRVScope.length());
+									output(2).push(p1);
+								} else {
+									/*wrap the request to a publication to /FFFFFFFF/NODE_ID  */
+									/*Format: numberOfIDs = (unsigned char) 1, numberOfFragments1 = (unsigned char) 2, ID1 = /FFFFFFFF/NODE_ID*/
+									/*this should be a request to the RV element running in some other node*/
+									//click_chatter("I will send the request to the domain RV using the FID: %s", RVFID.to_string().c_str());
+									unsigned char numberOfIDs = 1;
+									unsigned char numberOfFragments = 2;
+									/*push the "header" - see above*/
+									p1 = req_packet->push(sizeof (unsigned char) + 1 * sizeof (unsigned char) + 2 * PURSUIT_ID_LEN);
+									memcpy(p1->data(), &numberOfIDs, sizeof (unsigned char));
+									memcpy(p1->data() + sizeof (unsigned char), &numberOfFragments, sizeof (unsigned char));
+									memcpy(p1->data() + sizeof (unsigned char) + sizeof (unsigned char), gc->nodeRVScope.c_str(), gc->nodeRVScope.length());
+									p2 = p1->push(FID_LEN);
+									memcpy(p2->data(), RVFID._data, FID_LEN);
+									output(0).push(p2);
+								}
+								break ;
+							}
+						}
+					}
+					
+				}
                 p->kill() ;
                 break ;
             }
