@@ -7,7 +7,7 @@ int main(int argc, char* arg[])
 
 	for(int i = 68 ; i <= 70 ; i++)
 	{
-		sprintf(cmd, "ssh root@172.16.20.%d \"pkill publisher\"", i) ;
+		sprintf(cmd, "ssh root@172.16.20.%d \"pkill kc_publisher\"", i) ;
 		system(cmd) ;
 	}
 }

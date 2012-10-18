@@ -120,7 +120,7 @@ void client_process(int i)
     FILE *f ;
     char docname[255] ;
     srand((unsigned int)(time(NULL)+getpid())) ;
-    sprintf(docname, "/home/client_process_cinc%d.dat", i) ;
+    sprintf(docname, "/home/client_process_kc%d.dat", i) ;
     if( (f = fopen(docname, "w+")) == NULL)
     {
         cout<<"process"<<i<<" fopen error"<<endl ;
@@ -132,6 +132,7 @@ void client_process(int i)
 
     time_t begintime = time(NULL) ;
     time_t endtime = time(NULL) ;
+	string emptystr ;
     while(difftime(endtime, begintime) < RUNTIME)
     {
     	if(nooffile >= NUMFILE && NUMFILE != 0)
@@ -150,54 +151,43 @@ void client_process(int i)
         fileid += filename ;
         fprintf(f, "%d  ", file_num) ;
         fflush(f) ;
-
-        unsigned int chunk_num = 1 ;
         struct timeval tv1, tv2 ;
-        gettimeofday(&tv1, NULL) ;
-        while(chunk_num <= CHUNKSIZE)
-        {
-            if (sigsetjmp(env_alrm,1) != 0){
-        	cout<<"timeout"<<endl;
+        
+        if (sigsetjmp(env_alrm,1) != 0){
+    		cout<<"timeout"<<endl;
+        }
+		gettimeofday(&tv1, NULL) ;
+        bin_id = hex_to_chararray(fileid) ;
+		bin_prefix_id = hex_to_chararray(emptystr) ;
+        ba->kc_subscribe(bin_id, bin_prefix_id, DOMAIN_LOCAL, 0);
+        unsigned int item_num = 0 ;
+        while (item_num < SEGSIZE) {
+        	alarm(10);
+            Event ev;
+            ba->getEvent(ev);
+            switch (ev.type) {
+                case SCOPE_PUBLISHED:
+                    cout << "SCOPE_PUBLISHED: " << chararray_to_hex(ev.id) << endl;
+                    bin_id = ev.id.substr(ev.id.length() - PURSUIT_ID_LEN, PURSUIT_ID_LEN);
+                    bin_prefix_id = ev.id.substr(0, ev.id.length() - PURSUIT_ID_LEN);
+                    ba->subscribe_scope(bin_id, bin_prefix_id, DOMAIN_LOCAL, NULL, 0);
+                    break;
+                case SCOPE_UNPUBLISHED:
+                    cout << "SCOPE_UNPUBLISHED: " << chararray_to_hex(ev.id) << endl;
+                    break;
+                case START_PUBLISH:
+                    cout << "START_PUBLISH: " << chararray_to_hex(ev.id) << endl;
+                    break;
+                case STOP_PUBLISH:
+                    cout << "STOP_PUBLISH: " << chararray_to_hex(ev.id) << endl;
+                    break;
+                case PUBLISHED_DATA:
+                    item_num++ ;
+                    cout << "PUBLISHED_DATA: " << chararray_to_hex(ev.id) << endl;
+                    cout << "data size: " << ev.data_len << endl;
+                    break;
             }
-            string chunkid ;
-            char chunkname[10] ;
-            sprintf(chunkname, "%X", chunk_num) ;
-            chunkid.insert(0, 2*PURSUIT_ID_LEN - strlen(chunkname), '0') ;
-            chunkid += chunkname ;
-
-            bin_id = hex_to_chararray(chunkid) ;
-            bin_prefix_id = hex_to_chararray(fileid) ;
-            ba->cinc_subscribe_scope(bin_id, bin_prefix_id, DOMAIN_LOCAL);
-            unsigned int item_num = 0 ;
-	        while (item_num < SEGSIZE) {
-	        	alarm(10);
-	            Event ev;
-	            ba->getEvent(ev);
-	            switch (ev.type) {
-	                case SCOPE_PUBLISHED:
-	                    cout << "SCOPE_PUBLISHED: " << chararray_to_hex(ev.id) << endl;
-	                    bin_id = ev.id.substr(ev.id.length() - PURSUIT_ID_LEN, PURSUIT_ID_LEN);
-	                    bin_prefix_id = ev.id.substr(0, ev.id.length() - PURSUIT_ID_LEN);
-	                    ba->subscribe_scope(bin_id, bin_prefix_id, DOMAIN_LOCAL, NULL, 0);
-	                    break;
-	                case SCOPE_UNPUBLISHED:
-	                    cout << "SCOPE_UNPUBLISHED: " << chararray_to_hex(ev.id) << endl;
-	                    break;
-	                case START_PUBLISH:
-	                    cout << "START_PUBLISH: " << chararray_to_hex(ev.id) << endl;
-	                    break;
-	                case STOP_PUBLISH:
-	                    cout << "STOP_PUBLISH: " << chararray_to_hex(ev.id) << endl;
-	                    break;
-	                case PUBLISHED_DATA:
-	                    item_num++ ;
-	                    cout << "PUBLISHED_DATA: " << chararray_to_hex(ev.id) << endl;
-	                    cout << "data size: " << ev.data_len << endl;
-	                    break;
-	            }
-        	}
         	alarm(0);
-            chunk_num++ ;
         }
         gettimeofday(&tv2, NULL) ;
         float td = 1000000*(tv2.tv_sec - tv1.tv_sec)+tv2.tv_usec - tv1.tv_usec ;

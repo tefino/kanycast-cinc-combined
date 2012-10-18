@@ -29,7 +29,7 @@ static unsigned int data_sent_num = 0 ;
 void sigfun(int sig) {
     (void) signal(SIGINT, SIG_DFL) ;
     FILE *fp ;
-    if ( (fp = fopen("/home/server_cinc.dat", "w+")) == NULL )
+    if ( (fp = fopen("/home/server_kc.dat", "w+")) == NULL )
     {
         cout<<"server.dat open fail"<<endl ;
         ba->disconnect();
@@ -48,7 +48,7 @@ void sigfun(int sig) {
 void termfun(int sig){
     (void) signal(SIGTERM, SIG_DFL) ;
     FILE *fp ;
-    if ( (fp = fopen("/home/server_cinc.dat", "w+")) == NULL )
+    if ( (fp = fopen("/home/server_kc.dat", "w+")) == NULL )
     {
         cout<<"server.dat open fail"<<endl ;
         ba->disconnect();
@@ -195,11 +195,11 @@ int main(int argc, char* argv[]) {
                 cout << "CINC_PUSH_TO_CACHE: " << chararray_to_hex(ev.id) << endl;
                 ba->publish_data(ev.type, ev.id, IMPLICIT_RENDEZVOUS, ev.to_sub_FID._data, ev.fid_len, payload, payload_size);
                 break ;
-	    case KC_REQUEST_DATA:
-		data_sent_num++ ;
-		cout<<"KC_REQUEST_DATA:"<<chararray_to_hex(ev.id) << endl;
-		ba->publish_data(PUBLISH_DATA, ev.id, IMPLICIT_RENDEZVOUS, ev.to_sub_FID._data, ev.fid_len, payload, payload_size);
-		break;
+			case KC_REQUEST_DATA:
+				data_sent_num++ ;
+				cout<<"KC_REQUEST_DATA:"<<chararray_to_hex(ev.id) << endl;
+				ba->publish_data(PUBLISH_DATA, ev.id, IMPLICIT_RENDEZVOUS, ev.to_sub_FID._data, ev.fid_len, payload, payload_size);
+				break;
             case STOP_PUBLISH:
                 cout << "STOP_PUBLISH: " << chararray_to_hex(ev.id) << endl;
                 break ;
