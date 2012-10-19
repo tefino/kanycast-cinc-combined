@@ -266,12 +266,15 @@ void CacheUnit::push(int port, Packet *p)
             {
                 //this is a data packet that the publisher pushes to the router, so I should cache it
                 numberOfIDs = *(p->data() + sizeof (type));
+				//get the SIDs, chunk level
                 for (int i = 0; i < (int) numberOfIDs; i++) {
                     IDLength = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index);
                     String tempid = String((const char *) (p->data() + sizeof (type) + sizeof (numberOfIDs) +\
                                   sizeof (IDLength) + index), IDLength * PURSUIT_ID_LEN);
                     index = index + sizeof (IDLength) + IDLength*PURSUIT_ID_LEN;
                     IDs.push_back(tempid) ;
+					//since publisher pushes the cache to me, it means that the content is popular;
+					//so add the ID of this content to the cache_list
                     cache_list.find_insert(StringSetItem(tempid)) ;
                     click_chatter("CU: cache data: %s", IDs[0].quoted_hex().c_str()) ;
                 }
@@ -287,6 +290,8 @@ void CacheUnit::push(int port, Packet *p)
             }
             case CINC_ERASE_ENTRY:
             {
+				//this message is sent from the RV indicating that the cache should not be cached, due to its unpopularity
+				//but I don't erase it from the storage, I just remove it from the cache_list.
                 numberOfIDs = *(p->data() + sizeof (type));
                 for (int i = 0; i < (int) numberOfIDs; i++) {
 
@@ -301,7 +306,9 @@ void CacheUnit::push(int port, Packet *p)
                 break ;
             }
             case CINC_ADD_ENTRY:
-            {
+            {//this message is sent from the RV indicating that this data should be cached.
+			 //I don't immediately request the publisher to send the data to me.
+			 //Upon the next request for this content, I'll cache this content, see CINC_REQ_DATA
                 numberOfIDs = *(p->data() + sizeof (type));
                 for (int i = 0; i < (int) numberOfIDs; i++) {
 
@@ -316,8 +323,11 @@ void CacheUnit::push(int port, Packet *p)
                 break ;
             }
             case KC_CACHE_CHECK:
-            {
+            {//this message is sent from the RV to check if the router has any chunks of the file
+			 //If does, send the information to subscriber, if not, just notify subscriber
+			 //After check the storage, I also check the cache_list to see if I should cache some chunks of this file
                 numberOfIDs = *(p->data() + sizeof (type));
+				//get the file ID
                 for (int i = 0; i < (int) numberOfIDs; i++) {
                     IDLength = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index);
                     IDs.push_back(String((const char *) (p->data() + sizeof (type) + sizeof (numberOfIDs) +\
@@ -328,7 +338,8 @@ void CacheUnit::push(int port, Packet *p)
                 memcpy(fid2sub._data, p->data() + sizeof (type) + sizeof (numberOfIDs) + index, FID_LEN) ;
                 unsigned char noofcr = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index+FID_LEN);
                 Vector<String> chunkid ;
-				StringSet chunkidset ;
+				StringSet chunkidset ;//this variable is for latter use
+				//check if I have any chunks of this file
                 for( int i = 0 ; i < cache.size() ; i++ )
                 {
                     String tempstr ;
@@ -339,7 +350,7 @@ void CacheUnit::push(int port, Packet *p)
                 }
                 unsigned char response_type = 0 ;
                 if(!chunkid.empty())
-                {
+                {//If I have some chunks of this file, then tell the subscriber about it
                     response_type = KC_CACHE_POSITIVE ;
                     BABitvector fid2cr(FID_LEN*8) ;
                     unsigned int noofhop = 0 ;
@@ -373,6 +384,7 @@ void CacheUnit::push(int port, Packet *p)
                            sizeof(numberOfIDs)+index+sizeof(noofchunk)+chunk_index, &noofcr,sizeof(noofcr)) ;
                     output(3).push(reply_packet) ;
                 } else{
+					//If I don't have any, just notify the subscriber
                     response_type = KC_CACHE_NEGATIVE ;
                     WritablePacket* reply_packet ;
                     reply_packet = Packet::make(20, NULL, FID_LEN+sizeof(response_type)+sizeof(noofcr)+sizeof(numberOfIDs)+index, 0) ;
@@ -385,6 +397,7 @@ void CacheUnit::push(int port, Packet *p)
                     output(1).push(reply_packet) ;
                 }
 
+				//the rest is cache_list check.
 				for(StringSetIter iter = cache_list.begin() ; iter != cache_list.end() ; iter++)
 				{
 					for(int i = 0 ; i < (int) numberOfIDs; i++)
@@ -393,7 +406,7 @@ void CacheUnit::push(int port, Packet *p)
 						{
 							String tempid = iter->_strData.substring(iter->_strData.length()-PURSUIT_ID_LEN, PURSUIT_ID_LEN) ;
 							if(chunkidset.find(tempid) == chunkidset.end())
-							{
+							{//I should cache this chunk, but I don't have it in my storage, so ask the publisher to send it to me
 								String tempfilechunkid = IDs[i]+tempid ;
 								WritablePacket* req_packet ;
 								unsigned char req_type = CINC_CACHE_AGAIN ;
@@ -452,8 +465,9 @@ void CacheUnit::push(int port, Packet *p)
                 break ;
             }
             case KC_REQUEST_DATA:
-            {
+            {//this message is from the subscriber for retrieving the data
                 numberOfIDs = *(p->data() + sizeof (type));
+				//get the file ID
                 for (int i = 0; i < (int) numberOfIDs; i++) {
                     IDLength = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index);
                     IDs.push_back(String((const char *) (p->data() + sizeof (type) + sizeof (numberOfIDs) +\
@@ -464,6 +478,7 @@ void CacheUnit::push(int port, Packet *p)
                 Vector<String> chunkid ;
                 Vector<String> flushed_chunkid ;//this variable will collect the chunk IDs that have been flushed
                 unsigned int chunk_index = 0 ;
+				//get the chunk ID
                 for(int i = 0 ; i < (int) noofchunk ; i++)
                 {
                     chunkid.push_back(String((const char*) (p->data()+sizeof(type)+sizeof(numberOfIDs)+index+\
@@ -509,7 +524,7 @@ void CacheUnit::push(int port, Packet *p)
                         flushed_chunkid.push_back(chunkid[i]) ;//this chunkid has been flushed
                 }
                 if(!flushed_chunkid.empty())
-                {
+                {//if I get here, it means that some of the chunks have been flushed, so tell the subscriber retrieve them from the publisher
                     WritablePacket* return_packet ;
                     unsigned char return_type = KC_CACHE_HIT_FAILED ;
                     unsigned char nooffailedchunk = flushed_chunkid.size() ;
@@ -536,7 +551,7 @@ void CacheUnit::push(int port, Packet *p)
     }
 }
 void CacheUnit::sendbackData(CacheEntry* ce, Vector<String>& IDs, BABitvector& backfid)
-{
+{//send back data
     unsigned char noofid = IDs.size() ;
     for(Vector<String>::iterator cache_iter = ce->IIDs.begin() ; cache_iter != ce->IIDs.end() ; cache_iter++)
     {
@@ -545,7 +560,7 @@ void CacheUnit::sendbackData(CacheEntry* ce, Vector<String>& IDs, BABitvector& b
         unsigned int total_id_length = 0 ;
         unsigned int id_index = 0 ;
         for(int i = 0 ; i < IDs.size() ; i++)
-        {
+        {//make the fullid
             fullids.push_back(IDs[i] + *cache_iter) ;
             total_id_length += IDs[i].length()+cache_iter->length() ;
             click_chatter("CU: send back data: %s", fullids[0].quoted_hex().c_str()) ;
@@ -605,13 +620,13 @@ void CacheUnit::storecache(Vector<String>& IDs, char* data, unsigned int datalen
         }
     }
     if(!flag)
-    {
+    {//this means that this is the first data of this chunk, so make a new cache_entry
         cache.push_back(new CacheEntry(IDs, IID, data, datalen, noofiid)) ;
         current_size += datalen ;
         free(data) ;
     }
     if(current_size > cache_size)
-    {
+    {//if overload, remove the least recently used one
         cache_replace++ ;
         if(cache_replace == Billion)
         {

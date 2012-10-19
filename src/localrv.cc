@@ -109,7 +109,7 @@ void LocalRV::push(int in_port, Packet * p) {
                          + ID.length() + sizeof (prefixIDLength) + prefixID.length());
             _remotehost = getRemoteHost(nodeID);
             if(type == CINC_CACHE_AGAIN)
-            {
+            {//this message is sent from cache unit
                 Scope *sc;
                 Scope *fatherScope;
                 String fullID;
@@ -146,7 +146,7 @@ void LocalRV::push(int in_port, Packet * p) {
                 return ;
             }
             if(type == CINC_SUB_SCOPE)
-            {
+            {//cinc: this message is sent from subscriber
                 p->pull(sizeof(type)+sizeof(IDLength)+ID.length()+sizeof(prefixIDLength)+prefixID.length()+\
                         sizeof (typeOfAPIEvent) + sizeof (IDLengthOfAPIEvent) +\
                          IDLengthOfAPIEvent * PURSUIT_ID_LEN+sizeof(strategy)) ;
@@ -154,7 +154,7 @@ void LocalRV::push(int in_port, Packet * p) {
                 return ;
             }
             if(type == KC_SUB_SCOPE)
-            {
+            {//kc: this message is sent from subscriber
                 if ((prefixID.length() == 0) && (ID.length() == PURSUIT_ID_LEN)) {
                     kc_subscribe_root_scope(_remotehost, ID, strategy);
                 } else if ((prefixID.length() > 0) && (ID.length() == PURSUIT_ID_LEN)) {
@@ -164,7 +164,7 @@ void LocalRV::push(int in_port, Packet * p) {
                 }
             }
             if(type == KC_PUBLISH_SCOPE)
-            {
+            {//kc: the message is sent from publisher
                 p->pull(sizeof(type)+sizeof(IDLength)+ID.length()+sizeof(prefixIDLength)+prefixID.length()+\
                         sizeof (typeOfAPIEvent) + sizeof (IDLengthOfAPIEvent) +\
                          IDLengthOfAPIEvent * PURSUIT_ID_LEN+sizeof(strategy)) ;
@@ -1556,7 +1556,7 @@ void LocalRV::cinc_askTMforNotifySub(unsigned char request_type, StringSet& IIDs
     p->set_anno_u32(0, RV_ELEMENT);
     output(0).push(p);
 }
-
+//cinc: collect the information send it to TM
 void LocalRV::cinc_rendezvous(unsigned char type, RemoteHostSet& publishers, RemoteHostSet& subscribers, StringSet& IIDs, StringSet SIDs, Packet* p)
 {
     /********FOR THE API*********/
@@ -1635,7 +1635,7 @@ void LocalRV::cinc_rendezvous(unsigned char type, RemoteHostSet& publishers, Rem
      output(0).push(packet);
 }
 
-//cinc
+//cinc: save the subscription
 void LocalRV::cinc_subscrip_scope(RemoteHost* _subscriber, String& ID, String& prefixID, unsigned char& strategy, Packet* p)
 {
     Scope *sc;
@@ -1715,7 +1715,7 @@ void LocalRV::cinc_subscrip_scope(RemoteHost* _subscriber, String& ID, String& p
                     {//if information are published under this scope, then rendevzous
 
                         if(sc->is_first)
-                        {
+                        {//If first received save the information
                             sc->is_first = false ;
                             unsigned char noofcr = 0 ;
                             noofcr = *(p->data()) ;
@@ -1729,18 +1729,18 @@ void LocalRV::cinc_subscrip_scope(RemoteHost* _subscriber, String& ID, String& p
 
                         }
                         if((sc->request_count%POPTHRESHOLD)==0)
-                        {
+                        {//popularity threshold hit
                             unsigned char noofrouter = sc->cache_router.size() ;
                             unsigned int hotdegree = sc->request_count/POPTHRESHOLD ;
                             if(hotdegree <= noofrouter && hotdegree != 0 && hotdegree > sc->current_cache)
-                            {
+                            {//first popularity hit
                                 cinc_askPUBtocache(SIDs, publishers, sc->cache_router[hotdegree-1]) ;
                                 sc->current_cache++ ;
                                 sc->current_cache_entry++ ;
                                 click_chatter("LR: ask pub cache: %s to %s", SIDs.begin()->_strData.quoted_hex().c_str(), sc->cache_router[hotdegree-1].c_str()) ;
                             }
                             if(hotdegree > sc->current_cache_entry && hotdegree <= noofrouter && hotdegree != 0)
-                            {
+                            {//latter popularity hit only operate cache list
                                 Vector<String> cache_router ;
                                 cache_router.push_back(sc->cache_router[hotdegree-1]) ;
                                 cinc_operate_cache_list_entry(CINC_ADD_ENTRY, SIDs, cache_router) ;
@@ -1765,9 +1765,10 @@ void LocalRV::cinc_subscrip_scope(RemoteHost* _subscriber, String& ID, String& p
     }
     p->kill() ;
 }
+//cinc: ask publisher to send content to router
 void LocalRV::cinc_askPUBtocache(StringSet& SIDs, RemoteHostSet& publishers, String routerID)
 {
-        /********FOR THE API*********/
+    /********FOR THE API*********/
     unsigned char typeForAPI = PUBLISH_DATA;
     unsigned char IDLenForAPI = 2 * PURSUIT_ID_LEN / PURSUIT_ID_LEN;
     unsigned char strategy = IMPLICIT_RENDEZVOUS;
@@ -1829,7 +1830,7 @@ void LocalRV::cinc_askPUBtocache(StringSet& SIDs, RemoteHostSet& publishers, Str
      packet->set_anno_u32(0, RV_ELEMENT);
      output(0).push(packet);
 }
-
+//periodically check the popularity and act accordingly
 void LocalRV::run_timer(Timer *timer)
 {
     for(ScopeHashMapIter iter = scopeIndex.begin() ; iter != scopeIndex.end() ; iter++)
@@ -1839,7 +1840,7 @@ void LocalRV::run_timer(Timer *timer)
         	unsigned int temp_current_cache_entry = iter->second->current_cache_entry ;
 		unsigned int hotdegree = temp_req_count/POPTHRESHOLD ;
 		if(hotdegree < temp_current_cache_entry )
-		{
+		{//if populairty decreased
 			StringSet SIDs ;
 			unsigned char noofcr = temp_current_cache_entry - hotdegree ;
 			iter->second->getIDs(SIDs) ;
@@ -1848,6 +1849,7 @@ void LocalRV::run_timer(Timer *timer)
 			{
 				cache_router.push_back(iter->second->cache_router[temp_current_cache_entry-i]) ;
 			}
+			//tell cache router to erase the ID from the cache_list
 			cinc_operate_cache_list_entry(CINC_ERASE_ENTRY, SIDs, cache_router) ;
 			iter->second->current_cache_entry = hotdegree ;
 		}
@@ -1856,7 +1858,7 @@ void LocalRV::run_timer(Timer *timer)
     }
     _timer.reschedule_after_sec(INTERVAL);
 }
-
+//cinc: operate the cache_list
 void LocalRV::cinc_operate_cache_list_entry(unsigned char type, StringSet& SIDs, Vector<String>& cache_router)
 {
         /********FOR THE API*********/
@@ -1989,7 +1991,7 @@ unsigned int LocalRV::kc_publish_inner_scope(RemoteHost *_publisher, String &ID,
                         Vector<String> routerIDs ;
                         unsigned char noofrouter = DEGREE ;
                         String routerIDpre = gc->nodeID.substring(0, AREA_LENGTH) ;
-                        routerIDpre += 'r' ;//add the router indication
+                        routerIDpre += 'r' ;//add the router indicator
 
                         gc->cinc_hash(ID, noofrouter, hash_values) ;//get hash values, the hash_values are the router num already.
                         noofrouter = hash_values.size() ;//assign the actual number of cache router, since there may be hash collision
@@ -2109,18 +2111,18 @@ void LocalRV::kc_subscribe_root_scope(RemoteHost *_subscriber, String &ID, unsig
                     ss_iter->_scpointer->getIDs(SIDs) ;
                     //if information are published under this scope, then rendevzous
                     if((ss_iter->_scpointer->request_count%POPTHRESHOLD)==0)
-                    {
+                    {//populairty hit
                         unsigned char noofrouter = ss_iter->_scpointer->cache_router.size() ;
                         unsigned int hotdegree = ss_iter->_scpointer->request_count/POPTHRESHOLD ;
                         if(hotdegree <= noofrouter && hotdegree != 0 && hotdegree > ss_iter->_scpointer->current_cache)
-                        {
+                        {//first popularity hit
                             cinc_askPUBtocache(SIDs, publishers, ss_iter->_scpointer->cache_router[hotdegree-1]) ;
                             ss_iter->_scpointer->current_cache++ ;
                             ss_iter->_scpointer->current_cache_entry++ ;
                             click_chatter("LR: ask pub cache: %s to %s", SIDs.begin()->_strData.quoted_hex().c_str(), ss_iter->_scpointer->cache_router[hotdegree-1].c_str()) ;
                         }
                         if(hotdegree > ss_iter->_scpointer->current_cache_entry && hotdegree <= noofrouter && hotdegree != 0)
-                        {
+                        {//latter popularity hit
                             Vector<String> cache_router ;
                             cache_router.push_back(ss_iter->_scpointer->cache_router[hotdegree-1]) ;
                             cinc_operate_cache_list_entry(CINC_ADD_ENTRY, SIDs, cache_router) ;
@@ -2226,14 +2228,14 @@ void LocalRV::kc_subscribe_inner_scope(RemoteHost* _subscriber, String& ID, Stri
                                 unsigned char noofrouter = ss_iter->_scpointer->cache_router.size() ;
                                 unsigned int hotdegree = ss_iter->_scpointer->request_count/POPTHRESHOLD ;
                                 if(hotdegree <= noofrouter && hotdegree != 0 && hotdegree > ss_iter->_scpointer->current_cache)
-                                {
+                                {//popularity first hit
                                     cinc_askPUBtocache(SIDs, publishers, ss_iter->_scpointer->cache_router[hotdegree-1]) ;
                                     ss_iter->_scpointer->current_cache++ ;
                                     ss_iter->_scpointer->current_cache_entry++ ;
                                     click_chatter("LR: ask pub cache: %s to %s", SIDs.begin()->_strData.quoted_hex().c_str(), ss_iter->_scpointer->cache_router[hotdegree-1].c_str()) ;
                                 }
                                 if(hotdegree > ss_iter->_scpointer->current_cache_entry && hotdegree <= noofrouter && hotdegree != 0)
-                                {
+                                {//latter popularity hit
                                     Vector<String> cache_router ;
                                     cache_router.push_back(ss_iter->_scpointer->cache_router[hotdegree-1]) ;
                                     cinc_operate_cache_list_entry(CINC_ADD_ENTRY, SIDs, cache_router) ;

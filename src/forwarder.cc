@@ -183,7 +183,7 @@ void Forwarder::push(int in_port, Packet *p) {
         }
         andVector = FID & gc->iLID ;
         if(in_port == 2 && andVector == gc->iLID)
-        {
+        {//If this message should be sent locally
         	if(out_links.size() != 0)
         	{
         		WritablePacket* temppacket = p->clone()->uniqueify() ;
@@ -197,7 +197,7 @@ void Forwarder::push(int in_port, Packet *p) {
         	}
         }
         if(in_port == 4 && andVector == gc->iLID)
-        {
+        {//If this message should be sent locally
         	if(out_links.size() != 0)
         	{
         		WritablePacket* temppacket = p->clone()->uniqueify() ;

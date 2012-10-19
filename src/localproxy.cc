@@ -110,7 +110,7 @@ void LocalProxy::push(int in_port, Packet * p) {
         _localhost = getLocalHost(type_of_publisher, descriptor);
         type = *(p->data());
         if( type == NOTIFY_AREAINFO )
-        {
+        {//This information is from TM to tell routers about the information of the network
             WritablePacket* packet ;
             packet = Packet::make(20, NULL, p->length(), 0) ;
             memcpy(packet->data(), p->data()+sizeof(type), FID_LEN) ;
@@ -130,7 +130,7 @@ void LocalProxy::push(int in_port, Packet * p) {
 //            output(4).push(packet) ;
 //        }
         else if (type == CINC_ERASE_ENTRY || type == CINC_ADD_ENTRY || type == KC_CACHE_CHECK)
-        {
+        {//these messages is sent to cache unit
             WritablePacket* packet ;
             packet = Packet::make(20, NULL, p->length(), 0) ;
             memcpy(packet->data(), p->data()+sizeof(type), FID_LEN) ;
@@ -237,7 +237,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 return ;
             }
             if(type == KC_SUB_SCOPE)
-            {
+            {//kc: the client subscribe to a scope
                 if( strategy != DOMAIN_LOCAL)
                 {
                     click_chatter("only domain_local subscription will be handled") ;
@@ -250,7 +250,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 return ;
             }
             if(type == KC_PUBLISH_SCOPE)
-            {
+            {//kc: the client publishes a scope
                 if( strategy != DOMAIN_LOCAL)
                 {
                     click_chatter("only domain_local publication will be handled") ;
@@ -274,10 +274,10 @@ void LocalProxy::push(int in_port, Packet * p) {
     {
         type = *(p->data()) ;
         if(type == NOTIFY_AREAINFO)
-        {
+        {//This message is from TM to tell this router about the information of the network
             int tempnum ;
             memcpy(&tempnum, p->data()+sizeof(type), sizeof(tempnum)) ;
-            gc->num_router = tempnum ;
+            gc->num_router = tempnum ;//assign the number of router of this network
             p->kill() ;
         }
         else
@@ -304,6 +304,7 @@ void LocalProxy::push(int in_port, Packet * p) {
         switch (type)
         {
             case CINC_CACHE_HIT_FAILED:
+				//this message is returned from the cache unit
                 index = 0;
                 /*read the "header"*/
                 numberOfIDs = *(p->data()+sizeof(type));
@@ -331,6 +332,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 memcpy(fid2pub._data, p->data()+sizeof(type)+NODEID_LEN+sizeof(noofhops), FID_LEN) ;
                 memcpy(fid2sub._data, p->data()+sizeof(type)+NODEID_LEN+sizeof(noofhops)+FID_LEN, FID_LEN) ;
                 noofsid = *(p->data()+sizeof(type)+NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN) ;
+				//get the file ID
                 for (int i = 0; i < (int) noofsid; i++) {
                     IDLength = *(p->data() + sizeof (type) +NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN+ sizeof (noofsid) + index);
                     IDs.push_back(String((const char *) (p->data() + sizeof (type)+NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN+sizeof(noofsid)+sizeof(IDLength)+index), IDLength*PURSUIT_ID_LEN));
@@ -338,6 +340,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 }
                 unsigned int templen = sizeof(type)+NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN+sizeof(noofsid)+index ;
                 noofchunkid = *(p->data()+templen) ;
+				//get the chunk ID
                 for(int i = 0 ; i < (int) noofchunkid ; i++)
                 {
                     chunkids.push_back(String((const char*) (p->data()+templen+sizeof(noofchunkid)+chunk_index), PURSUIT_ID_LEN)) ;
@@ -346,14 +349,17 @@ void LocalProxy::push(int in_port, Packet * p) {
                 noofcr = *(p->data()+templen+sizeof(noofchunkid)+chunk_index) ;
                 ActiveSubscription *actsub ;
                 for(int i = 0 ; i < (int) noofsid ; i++)
-                {
+                {//find the active subscription
                     actsub = activeSubscriptionIndex.get(IDs[i]) ;
                     if(actsub != activeSubscriptionIndex.default_value()){
-                        actsub->kc_noofcr++ ;
+						//subscription found
+                        actsub->kc_noofcr++ ;//received message plus one
                         for(int ic = 0 ; ic < (int) noofchunkid ; ic++)
-                        {
+                        {//for every chunk
                             unsigned int tempdis = actsub->kc_rp_dis.get(chunkids[ic]) ;
                             if(tempdis == actsub->kc_rp_dis.default_value() || tempdis >= noofhops){
+								//if this chunk is not recorded yet or this cache router is a better one
+								//then update the corresponding variable
                                 actsub->kc_rp_dis.set(chunkids[ic], noofhops) ;
                                 actsub->kc_rp_FID.set(chunkids[ic], fid2pub) ;
                                 actsub->kc_rp_p2sfid.set(chunkids[ic], fid2sub) ;
@@ -384,7 +390,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 }
                 ActiveSubscription* actsub ;
                 for(int i = 0 ; i < (int) noofsid ; i++)
-                {
+                {//only find the active subscription and add received message by one
                     actsub = activeSubscriptionIndex.get(IDs[i]) ;
                     if(actsub != activeSubscriptionIndex.default_value()){
                         actsub->kc_noofcr++ ;
@@ -401,8 +407,10 @@ void LocalProxy::push(int in_port, Packet * p) {
                 break ;
             }
             case KC_CACHE_HIT_FAILED:
-            {
+            {//this message is sent from cache unit to tell the subscriber that the required cache is flushed already
+			 //ask the publisher to send the content
                 unsigned char noofsid = *(p->data()+sizeof(type)) ;
+				//get file ID
                 for (int i = 0; i < (int) noofsid; i++) {
                     IDLength = *(p->data()+sizeof(type)+sizeof(noofsid)+index);
                     IDs.push_back(String((const char *) (p->data()+sizeof(type)+\
@@ -412,6 +420,7 @@ void LocalProxy::push(int in_port, Packet * p) {
                 unsigned char noofchunkid = *(p->data()+sizeof(type)+sizeof(noofsid)+index) ;
                 unsigned int chunk_index = 0 ;
                 Vector<String> chunkids ;
+				//get the chunk ID
                 for(int i = 0 ; i < (int) noofchunkid ; i++)
                 {
                     chunkids.push_back(String((const char*) (p->data()+sizeof(type)+\
@@ -666,7 +675,7 @@ void LocalProxy::handleRVNotification(Packet *p) {
     BABitvector FID;
     type = *(p->data());
     if(type == KC_INFORM_SUB)
-    {
+    {//this message is sent from the TM to tell the subscriber about the information of the best publisher
         String bestpub = String((const char*) (p->data()+sizeof(type)), NODEID_LEN) ;
         unsigned int noofhops = 0 ;
         unsigned char noofsid = 0 ;
@@ -680,13 +689,15 @@ void LocalProxy::handleRVNotification(Packet *p) {
         memcpy(fid2pub._data, p->data()+sizeof(type)+NODEID_LEN+sizeof(noofhops), FID_LEN) ;
         memcpy(fid2sub._data, p->data()+sizeof(type)+NODEID_LEN+sizeof(noofhops)+FID_LEN, FID_LEN) ;
         noofsid = *(p->data()+sizeof(type)+NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN) ;
-        for (int i = 0; i < (int) noofsid; i++) {
+        //get the file ID
+		for (int i = 0; i < (int) noofsid; i++) {
             IDLength = *(p->data() + sizeof (type) +NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN+ sizeof (noofsid) + index);
             IDs.push_back(String((const char *) (p->data() + sizeof (type)+NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN+sizeof(noofsid)+sizeof(IDLength)+index), IDLength*PURSUIT_ID_LEN));
             index = index + sizeof (IDLength) + IDLength*PURSUIT_ID_LEN;
         }
         unsigned int templen = sizeof(type)+NODEID_LEN+sizeof(noofhops)+FID_LEN+FID_LEN+sizeof(noofsid)+index ;
         noofchunkid = *(p->data()+templen) ;
+		//get the chunk ID
         for(int i = 0 ; i < (int) noofchunkid ; i++)
         {
             chunkids.push_back(String((const char*) (p->data()+templen+sizeof(noofchunkid)+chunk_index), PURSUIT_ID_LEN)) ;
@@ -697,6 +708,7 @@ void LocalProxy::handleRVNotification(Packet *p) {
         for(int i = 0 ; i < (int) noofsid ; i++)
         {
             actsub = activeSubscriptionIndex.get(IDs[i]) ;
+			//find the local active subscription
             if(actsub != activeSubscriptionIndex.default_value()){
                 actsub->fid2pub = fid2pub ;
                 actsub->fid2sub = fid2sub ;
@@ -705,7 +717,8 @@ void LocalProxy::handleRVNotification(Packet *p) {
                 {
                     unsigned int tempdis = actsub->kc_rp_dis.get(chunkids[ic]) ;
                     if(tempdis == actsub->kc_rp_dis.default_value() || tempdis > noofhops){
-                        actsub->kc_rp_dis.set(chunkids[ic], noofhops) ;
+                        //if the chunk is not recorded yet, or the publisher is better choice
+						actsub->kc_rp_dis.set(chunkids[ic], noofhops) ;
                         actsub->kc_rp_FID.set(chunkids[ic], fid2pub) ;
                         actsub->kc_rp_p2sfid.set(chunkids[ic], fid2sub) ;
                         actsub->kc_chunkid_nodeid.set(chunkids[ic], bestpub) ;
@@ -722,6 +735,7 @@ void LocalProxy::handleRVNotification(Packet *p) {
         }
         return ;
     }
+
     numberOfIDs = *(p->data() + sizeof (type));
     for (int i = 0; i < (int) numberOfIDs; i++) {
         IDLength = *(p->data() + sizeof (type) + sizeof (numberOfIDs) + index);
@@ -729,13 +743,13 @@ void LocalProxy::handleRVNotification(Packet *p) {
         index = index + sizeof (IDLength) + IDLength*PURSUIT_ID_LEN;
     }
     if(type == RES_FROM_TM)
-    {
+    {//cinc: sent from TM about the FID of the subscriber to cache router and publisher
         if(cinc_saveFIDinfo(IDs, (unsigned int)(sizeof(type)+sizeof(numberOfIDs)+index), p))
             cinc_sendrequest(IDs, (unsigned int)(sizeof(numberOfIDs)+index), p) ;
         return ;
     }
     if(type == CINC_PUSH_TO_CACHE)
-    {
+    {//cinc: ask the publisher to send content to cache router
         AskPubPushData(type, p) ;
     }
 
@@ -1342,6 +1356,7 @@ void LocalProxy::deleteAllActiveScopeSubscriptions(LocalHost * _subscriber) {
 
 void LocalProxy::AskPubPushData(unsigned char type, Packet* p)
 {
+	//send the message to local publisher process
     unsigned char numberOfIDs, IDLength = 0 ;
     ActivePublication *ap;
     Vector<String> SIDs ;
@@ -1399,7 +1414,8 @@ void LocalProxy::AskPubPushData(unsigned char type, Packet* p)
     }
 }
 
-//cinc:
+//cinc: once the local client process issues a subscription, the middleware can deduce the corresponding cache routers from the chunk ID
+//the middleware send the information to RV
 void LocalProxy::cinc_handlesubscription(String ID, Packet* p, BABitvector& RVFID)
 {
     Vector<unsigned int> hash_values ;
@@ -1408,7 +1424,7 @@ void LocalProxy::cinc_handlesubscription(String ID, Packet* p, BABitvector& RVFI
     unsigned int index = p->length() ;
     WritablePacket* payload ;
     String routerIDpre = gc->nodeID.substring(0, AREA_LENGTH) ;
-    routerIDpre += 'r' ;//add the router indication
+    routerIDpre += 'r' ;//add the router indicator
 
     gc->cinc_hash(ID, noofrouter, hash_values) ;//get hash values, the hash_values are the router num already.
     noofrouter = hash_values.size() ;//assign the actual number of cache router, since there may be hash collision
@@ -1429,6 +1445,7 @@ void LocalProxy::cinc_handlesubscription(String ID, Packet* p, BABitvector& RVFI
     }
 
     memcpy(payload->data()+index, &noofrouter, sizeof(noofrouter)) ;
+	//add the router ID
     for(int i = 0 ; i < noofrouter ; i++)
     {
         memcpy(payload->data()+index+sizeof(noofrouter)+i*NODEID_LEN, routerIDs[i].c_str(), NODEID_LEN) ;
@@ -1464,7 +1481,7 @@ void LocalProxy::cinc_handlesubscription(String ID, Packet* p, BABitvector& RVFI
         output(2).push(p2);
     }
 }
-
+//cinc: get FID information from the TM save it in the corresponding active subscription class
 bool LocalProxy::cinc_saveFIDinfo(Vector<String>& IDs, unsigned int index2fidinfo, Packet* p)
 {
     for(Vector<String>::iterator iter = IDs.begin() ; iter != IDs.end() ; iter++ )
@@ -1472,10 +1489,8 @@ bool LocalProxy::cinc_saveFIDinfo(Vector<String>& IDs, unsigned int index2fidinf
         ActiveSubscription *as;
         as = activeSubscriptionIndex.get(*iter);
         if (as != activeSubscriptionIndex.default_value())
-        {
+        {//find the corresponding active subscription
             unsigned char nooffid = 0 ;
-
-
             nooffid = *(p->data()+index2fidinfo) ;
             for(int i = 0 ; i < (int)nooffid ; i++)
             {
@@ -1507,7 +1522,7 @@ bool LocalProxy::cinc_saveFIDinfo(Vector<String>& IDs, unsigned int index2fidinf
     }
     return false ;
 }
-
+//cinc: after save the FID information, start to retrieve the content
 void LocalProxy::cinc_sendrequest(Vector<String>& IDs, unsigned int index, Packet* p)
 {
     for(Vector<String>::iterator iter = IDs.begin() ; iter != IDs.end() ; iter++ )
@@ -1522,13 +1537,13 @@ void LocalProxy::cinc_sendrequest(Vector<String>& IDs, unsigned int index, Packe
             BABitvector p2sfid(FID_LEN*8) ;
             if(as->rp_dis.empty())
             {
-                click_chatter("LP: multipath must exist, right now doesn't support multipath information graph") ;
+                click_chatter("LP: multiple sids must exist, right now doesn't support multipath information graph") ;
                 return ;
             }
             String minnode = as->rp_dis.begin()->first ;
             for(HashTable<String, unsigned int>::iterator hiter = as->rp_dis.begin() ;\
                 hiter != as->rp_dis.end() ; hiter++)
-            {
+            {//find the shortest distance node
                 if(mindis > hiter->second)
                 {
                     mindis = hiter->second ;
@@ -1538,6 +1553,7 @@ void LocalProxy::cinc_sendrequest(Vector<String>& IDs, unsigned int index, Packe
             content_type = as->rp_type[minnode] ;
             tocontentfid = as->rp_FID[minnode] ;
             p2sfid = as->rp_p2sfid[minnode] ;
+			//erase the shortest node
             as->rp_dis.erase(minnode) ;
             as->rp_FID.erase(minnode) ;
             as->rp_type.erase(minnode) ;
@@ -1571,7 +1587,8 @@ void LocalProxy::cinc_sendrequest(Vector<String>& IDs, unsigned int index, Packe
     }
 }
 
-//cinc:
+//cinc: this message is sent from the RV. This message indicates that the popularity of a file hits the threshold;
+//so the publisher should send the content to a cache router
     void LocalProxy::cinc_pushDATAtoRouter(String &ID, BABitvector &FID_to_subscribers, Packet *p, LocalHost *_localhost)
 {
     int counter = 1;
@@ -1580,6 +1597,7 @@ void LocalProxy::cinc_sendrequest(Vector<String>& IDs, unsigned int index, Packe
     Vector<String> IDs;
     ActivePublication *ap = activePublicationIndex.get(ID.substring(0, ID.length() - PURSUIT_ID_LEN));
     /*i will augment the IDs vector using my father publication*/
+	//get all the possible IDs, eventhough do not support multiple scope right now
     if (ap != activePublicationIndex.default_value()) {
         for (int i = 0; i < ap->allKnownIDs.size(); i++) {
             String knownID = ap->allKnownIDs[i] + ID.substring(ID.length() - PURSUIT_ID_LEN, PURSUIT_ID_LEN);
@@ -1618,7 +1636,7 @@ void LocalProxy::cinc_sendrequest(Vector<String>& IDs, unsigned int index, Packe
     memcpy(newPacket->data()+ FID_LEN+sizeof (type) + sizeof (numberOfIDs) + index, &noofiid, sizeof(noofiid)) ;
     output(5).push(newPacket);
 }
-
+//kc: after collect all the information, the subscriber begin to retrieve data
 void LocalProxy::kc_beginRetrieve(ActiveSubscription* actsub)
 {
     Vector<String> fileids = actsub->allKnownIDs ;
@@ -1631,13 +1649,13 @@ void LocalProxy::kc_beginRetrieve(ActiveSubscription* actsub)
     HashTable< String, BABitvector> holderID_fid2sub ;
     HashTable< String, Vector<String> > holderID_chunkID ;
     for(HashTable<String, String>::iterator iter = actsub->kc_chunkid_nodeid.begin() ; iter != actsub->kc_chunkid_nodeid.end() ; iter++)
-    {
+    {//prepare the information
         String tempnodeID = iter->second ;
         holderID_chunkID[tempnodeID].push_back(iter->first) ;
         holderID_fid2pub[tempnodeID]=(actsub->kc_rp_FID[iter->first]) ;
         holderID_fid2sub[tempnodeID]=(actsub->kc_rp_p2sfid[iter->first]) ;
     }
-
+	//make the common part
     unsigned char type = KC_REQUEST_DATA ;
     for(int i = 0 ; i < nooffilid ; i++)
     {
@@ -1655,8 +1673,9 @@ void LocalProxy::kc_beginRetrieve(ActiveSubscription* actsub)
         memcpy(partcontent+sizeof(type)+sizeof(nooffilid)+index+sizeof(idlen), fileids[i].c_str(), fileids[i].length()) ;
         index += sizeof(idlen)+fileids[i].length() ;
     }
+
     for(HashTable<String, Vector<String> >::iterator iter = holderID_chunkID.begin() ; iter != holderID_chunkID.end() ; iter++)
-    {
+    {//ask all the node to retrieve the data Kanycast
         noofchunk = iter->second.size() ;
         WritablePacket* packet ;
         unsigned int packet_size = 0 ;
@@ -1680,7 +1699,7 @@ void LocalProxy::kc_beginRetrieve(ActiveSubscription* actsub)
     }
     free(partcontent) ;
 }
-
+//kc: ask the local publisher process to send data
 void LocalProxy::kc_AskPubPushData(Packet* p)
 {
     unsigned char type = *(p->data()) ;
@@ -1713,7 +1732,7 @@ void LocalProxy::kc_AskPubPushData(Packet* p)
     {
         Vector<String> filechunkid ;
         for(int n = 0 ; n < numberOfIDs ; n++)
-        {
+        {//change to chunk level ID
             filechunkid.push_back(fileids[n]+chunkids[m]) ;
         }
         for (int i = 0; i < (int) numberOfIDs; i++)
@@ -1722,7 +1741,7 @@ void LocalProxy::kc_AskPubPushData(Packet* p)
             if (ap != activePublicationIndex.default_value()) {
                 IIDs.clear() ;
                 for(StringSetIter iid_iter = ap->IIDs.begin() ; iid_iter != ap->IIDs.end() ; iid_iter++)
-                {
+                {//make the full ID
                     IIDs.push_back(iid_iter->_strData) ;
                 }
                 for(Vector<String>::iterator iid_iter = IIDs.begin() ; iid_iter != IIDs.end() ; iid_iter++)

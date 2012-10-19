@@ -126,7 +126,7 @@ void handleRequest(char *request, int request_len) {
         }
     }
     if(request_type == SCOPE_RVS)
-    {
+    {//cinc rendezvous
         set<string> crouters ;
         unsigned char noofrouter = 0 ;
 
@@ -278,7 +278,7 @@ void handleRequest(char *request, int request_len) {
                          request_len-(sizeof (request_type) + sizeof (noofcr) + idx)) ;
     }
     if(request_type == KC_RENDEZVOUS_TYPE)
-    {
+    {//kc: send to cache router to check their caches
         cout<<"receive kc_rendezvous_type"<<endl ;
         unsigned char noofrouter = 0 ;
         vector<string> crouters ;
@@ -354,7 +354,7 @@ void handleRequest(char *request, int request_len) {
         free(packet2cache) ;
     }
     if( request_type == KC_INFORM_SUB )
-    {
+    {//kc: send to subscriber, tell it about the information of the best publisher
         cout<<"receive kc_inform_sub"<<endl ;
         memcpy(&no_publishers, request + sizeof (request_type), sizeof (no_publishers));
 
@@ -384,7 +384,7 @@ void handleRequest(char *request, int request_len) {
         string bestpub = *publishers.begin();
         tm_igraph.calculateFID(bestpub, tempsub, bestpub2sub_fid, best_noofhops) ;
         for( set<string>::iterator iter = publishers.begin() ; iter != publishers.end() ; iter++ )
-        {
+        {//get the best publisher
             Bitvector tempfid(FID_LEN*8) ;
             unsigned int temphops = 0 ;
             string temppub = *iter ;

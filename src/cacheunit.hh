@@ -151,7 +151,7 @@ public:
      * @brief The global configuration
      */
     GlobalConf *gc ;
-    /**@brief The cache*/
+    /**@brief The acutal cache*/
     Vector<CacheEntry*> cache ;
     /**@brief The total cache size in bytes*/
     unsigned int cache_size ;
