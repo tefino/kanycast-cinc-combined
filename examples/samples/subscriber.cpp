@@ -161,7 +161,7 @@ void client_process(int i)
 		bin_prefix_id = hex_to_chararray(emptystr) ;
         ba->kc_subscribe(bin_id, bin_prefix_id, DOMAIN_LOCAL, 0);
         unsigned int item_num = 0 ;
-        while (item_num < SEGSIZE) {
+        while (item_num < SEGSIZE*CHUNKSIZE) {
         	alarm(10);
             Event ev;
             ba->getEvent(ev);
