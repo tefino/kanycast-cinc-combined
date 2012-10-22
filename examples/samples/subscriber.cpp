@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
     signal(SIGALRM, sig_alrm) ;
     time_to_wait1.tv_sec = 0 ;
     time_to_wait1.tv_nsec = 1000000 ;
-    time_to_wait2.tv_nsec = 0 ;
+    time_to_wait2.tv_nsec = 100000000 ;
     if (argc == 1) {
         int user_or_kernel = atoi(argv[1]);
         if (user_or_kernel == 0) {
