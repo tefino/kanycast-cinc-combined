@@ -727,7 +727,7 @@ void LocalProxy::handleRVNotification(Packet *p) {
                 break ;
             }
         }
-        if(noofcr == 0 || actsub->kc_noofcr>= noofcr)
+        if(actsub->kc_noofcr>= noofcr)
         {
             actsub->allKnownIDs = IDs ;
             //begin to retrieve content
