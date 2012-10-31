@@ -2214,7 +2214,7 @@ void LocalRV::kc_subscribe_inner_scope(RemoteHost* _subscriber, String& ID, Stri
                             ss_iter->_scpointer->getInformationItems(_informationitems);
                             /*then, for each one do the rendez-vous process*/
                             InformationItemSetIter pub_it;
-                            for(int i = 0 ; i < ss_iter->_scpointer->cache_router.size() &&\
+                            for(int i = 0 ; i < ss_iter->_scpointer->current_cache &&\
                                             cache_router_ID.size() < gc->num_router ; i++)
                             {
                                 cache_router_ID.find_insert(StringSetItem(ss_iter->_scpointer->cache_router[i])) ;
