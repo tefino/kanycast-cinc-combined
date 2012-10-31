@@ -2214,11 +2214,6 @@ void LocalRV::kc_subscribe_inner_scope(RemoteHost* _subscriber, String& ID, Stri
                             ss_iter->_scpointer->getInformationItems(_informationitems);
                             /*then, for each one do the rendez-vous process*/
                             InformationItemSetIter pub_it;
-                            for(int i = 0 ; i < ss_iter->_scpointer->current_cache &&\
-                                            cache_router_ID.size() < gc->num_router ; i++)
-                            {
-                                cache_router_ID.find_insert(StringSetItem(ss_iter->_scpointer->cache_router[i])) ;
-                            }
                             StringSet SIDs ;
                             //get all the SIDs that represent this scope
                             ss_iter->_scpointer->getIDs(SIDs) ;
@@ -2241,6 +2236,11 @@ void LocalRV::kc_subscribe_inner_scope(RemoteHost* _subscriber, String& ID, Stri
                                     cinc_operate_cache_list_entry(CINC_ADD_ENTRY, SIDs, cache_router) ;
                                     ss_iter->_scpointer->current_cache_entry++ ;
                                 }
+                            }
+			    for(int i = 0 ; i < ss_iter->_scpointer->current_cache &&\
+                                            cache_router_ID.size() <= gc->num_router ; i++)
+                            {
+                                cache_router_ID.find_insert(StringSetItem(ss_iter->_scpointer->cache_router[i])) ;
                             }
                         }
                         kc_rendezvous(KC_RENDEZVOUS_TYPE, publishers, subscribers, cache_router_ID, file_scope_ids, subscope) ;
