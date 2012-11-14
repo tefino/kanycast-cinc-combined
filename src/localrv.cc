@@ -1839,7 +1839,7 @@ void LocalRV::run_timer(Timer *timer)
     		unsigned int temp_req_count = iter->second->request_count ;
         	unsigned int temp_current_cache_entry = iter->second->current_cache_entry ;
 		unsigned int hotdegree = temp_req_count/POPTHRESHOLD ;
-		if(hotdegree < temp_current_cache_entry )
+		if(hotdegree < temp_current_cache_entry && iter->second->scope_type == CHUNK_LEVEL )
 		{//if populairty decreased
 			StringSet SIDs ;
 			unsigned char noofcr = temp_current_cache_entry - hotdegree ;
