@@ -1698,6 +1698,12 @@ void LocalProxy::kc_beginRetrieve(ActiveSubscription* actsub)
             output(5).push(packet) ;//request to cache router
     }
     free(partcontent) ;
+	actsub->kc_noofcr = 0 ;//clear retrival information
+        actsub->kc_rp_dis.clear() ;
+        actsub->kc_rp_FID.clear() ;
+        actsub->kc_rp_p2sfid.clear() ;
+        actsub->kc_chunkid_nodeid.clear() ;
+
 }
 //kc: ask the local publisher process to send data
 void LocalProxy::kc_AskPubPushData(Packet* p)
